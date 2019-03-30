@@ -1,0 +1,6 @@
+U2UP_ADDONS_LAYERS="u2up-hag"
+
+u2up_hag_LAYER_NAME="u2up-hag"
+u2up_hag_LAYER_REPO="u2up-hag"
+u2up_hag_LAYER_PATH="../u2up/meta-u2up-hag"
+
