@@ -9,7 +9,7 @@ IMAGE_INSTALL = "\
     packagegroup-core-full-cmdline \
     ${CORE_IMAGE_EXTRA_INSTALL} \
     strace \
-    installer \
+    u2up-hag \
     "
 
 inherit core-image
