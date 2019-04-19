@@ -9,6 +9,15 @@ IMAGE_INSTALL = "\
     packagegroup-core-full-cmdline \
     ${CORE_IMAGE_EXTRA_INSTALL} \
     strace \
+    nodejs \
+    nodejs-npm \
+    cockpit \
+    cockpit-bridge \
+    cockpit-dashboard \
+    cockpit-networkmanager \
+    cockpit-pcp \
+    cockpit-system \
+    cockpit-ws \
     u2up-hag \
     "
 

@@ -4,3 +4,15 @@ u2up_hag_REPO_URL=""
 u2up_hag_REPO_BRANCH=""
 u2up_hag_REPO_VERSION=""
 
+# Repo: meta-u2up-cockpit
+meta_u2up_cockpit_REPO_NAME="meta-u2up-cockpit"
+meta_u2up_cockpit_REPO_URL=""
+meta_u2up_cockpit_REPO_BRANCH=""
+meta_u2up_cockpit_REPO_VERSION=""
+
+# Repo: meta-nodejs
+meta_nodejs_REPO_NAME="meta-nodejs"
+meta_nodejs_REPO_URL="https://github.com/imyller/meta-nodejs.git"
+meta_nodejs_REPO_BRANCH="master"
+meta_nodejs_REPO_VERSION=""
+
