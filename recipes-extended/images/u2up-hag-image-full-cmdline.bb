@@ -11,6 +11,7 @@ IMAGE_INSTALL = "\
     strace \
     nodejs \
     nodejs-npm \
+    openssl-bin \
     cockpit \
     cockpit-bridge \
     cockpit-dashboard \
@@ -18,6 +19,8 @@ IMAGE_INSTALL = "\
     cockpit-pcp \
     cockpit-system \
     cockpit-ws \
+    networkmanager \
+    firewalld \
     u2up-hag \
     "
 

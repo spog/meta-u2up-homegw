@@ -1,4 +1,4 @@
-U2UP_ADDONS_LAYERS="u2up-hag meta-u2up-cockpit meta-oe"
+U2UP_ADDONS_LAYERS="u2up-hag meta-u2up-cockpit meta-oe meta-python meta-networking"
 
 u2up_hag_LAYER_NAME="u2up-hag"
 u2up_hag_LAYER_REPO="u2up-hag"
@@ -11,6 +11,14 @@ meta_u2up_cockpit_LAYER_PATH="../u2up/meta-u2up-cockpit"
 meta_oe_LAYER_NAME="meta-oe"
 meta_oe_LAYER_REPO="meta-openembedded"
 meta_oe_LAYER_PATH="${meta_oe_LAYER_NAME}"
+
+meta_python_LAYER_NAME="meta-python"
+meta_python_LAYER_REPO="meta-openembedded"
+meta_python_LAYER_PATH="${meta_python_LAYER_NAME}"
+
+meta_networking_LAYER_NAME="meta-networking"
+meta_networking_LAYER_REPO="meta-openembedded"
+meta_networking_LAYER_PATH="${meta_networking_LAYER_NAME}"
 
 meta_nodejs_LAYER_NAME="meta-nodejs"
 meta_nodejs_LAYER_REPO="meta-nodejs"
