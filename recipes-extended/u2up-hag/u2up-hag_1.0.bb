@@ -1,5 +1,5 @@
-SUMMARY = "Disk partition editing/resizing utility"
-HOMEPAGE = "http://www.gnu.org/software/parted/parted.html"
+SUMMARY = "Boot-time U2UP-HAG pre-configuration support"
+HOMEPAGE = "http://www..."
 LICENSE = "BSD"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=b6fdc2ec7367311f970da8ef475e6fd1"
 SECTION = "console/tools"
@@ -9,17 +9,38 @@ PR = "r1"
 SRC_URI = " \
            file://LICENSE \
            file://u2up-hag.sh \
+           file://u2up-pre-config.sh \
+           file://u2up-install-bash-lib \
+           file://u2up-pre-config.service \
 "
 
 do_patch () {
-	cp -p ${WORKDIR}/LICENSE ${S}/
-	cp -p ${WORKDIR}/u2up-hag.sh ${S}/
+	mv ${WORKDIR}/LICENSE ${S}/
+	mv ${WORKDIR}/u2up-hag.sh ${S}/
+	mv ${WORKDIR}/u2up-pre-config.sh ${S}/
+	mv ${WORKDIR}/u2up-install-bash-lib ${S}/
+	mv ${WORKDIR}/u2up-pre-config.service ${S}/
 }
 
 do_install () {
+	install -d ${D}/etc/systemd/system
+	install -m 0644 ${S}/u2up-pre-config.service ${D}/etc/systemd/system/
+	install -d ${D}/etc/u2up-conf.d
+	install -d ${D}/lib/u2up
+	install -m 0755 ${S}/u2up-install-bash-lib ${D}/lib/u2up/
 	install -d ${D}/usr/bin
 	install -m 0755 ${S}/u2up-hag.sh ${D}/usr/bin/
+	install -m 0755 ${S}/u2up-pre-config.sh ${D}/usr/bin/
 }
+
+pkg_postinst_${PN}() {
+#!/bin/sh
+
+rm -f $D/etc/systemd/system/sysinit.target.wants/u2up-pre-config.service
+ln -s /etc/systemd/system/u2up-pre-config.service $D/etc/systemd/system/sysinit.target.wants/u2up-pre-config.service
+}
+
+FILES_${PN} += "etc lib usr"
 
 RDEPENDS_${PN} = "bash"
 

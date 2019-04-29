@@ -1,0 +1,218 @@
+#!/bin/bash
+#
+# A dialog menu based u2up-pc-installer program
+#
+#set -xe
+
+U2UP_CONF_DIR="/etc/u2up-conf.d"
+if [ ! -d "${U2UP_CONF_DIR}" ]; then
+	rm -rf $U2UP_CONF_DIR
+	mkdir -p $U2UP_CONF_DIR
+fi
+U2UP_KEYMAP_CONF_FILE=${U2UP_CONF_DIR}/10-keymap-conf
+U2UP_TARGET_DISK_CONF_FILE=${U2UP_CONF_DIR}/20-target_disk-conf
+U2UP_TARGET_HOSTNAME_CONF_FILE=${U2UP_CONF_DIR}/30-hostname-conf
+U2UP_TARGET_ADMIN_CONF_FILE=${U2UP_CONF_DIR}/40-admin-conf
+U2UP_NETWORK_CONF_FILE=${U2UP_CONF_DIR}/50-network-conf
+
+U2UP_TEMP_DIR="/tmp/u2up-temp"
+if [ ! -d "${U2UP_TEMP_DIR}" ]; then
+	rm -rf $U2UP_TEMP_DIR
+	mkdir -p $U2UP_TEMP_DIR
+fi
+U2UP_TARGET_DISK_SFDISK_BASH=${U2UP_TEMP_DIR}/u2up_target_disk-sfdisk_bash
+U2UP_TARGET_DISK_SFDISK_DUMP=${U2UP_TEMP_DIR}/u2up_target_disk-sfdisk_dump
+
+PART_TYPE_EFI="C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
+PART_TYPE_LINUX="0FC63DAF-8483-4772-8E79-3D69D8477DE4"
+
+store_keymap_selection() {
+	local rv=1
+	local keymap=$1
+	if [ -n "$keymap" ]; then
+		loadkeys -p $keymap 2> /dev/null
+		rv=$?
+		if [ $rv -eq 0 ]; then
+			echo "KEYMAP_SET=$keymap" > ${U2UP_KEYMAP_CONF_FILE}
+			echo "TARGET_DONE=0" >> ${U2UP_KEYMAP_CONF_FILE}
+		fi
+	fi
+	return $rv
+}
+
+enable_keymap_selection() {
+	local rv=1
+	local KEYMAP_SET=""
+	local TARGET_DONE=0
+	local root_path_prefix=${1:-"/"}
+	local new_target_done=${2:-0}
+
+	if [ ! -f "${U2UP_KEYMAP_CONF_FILE}" ]; then
+		return 1
+	fi
+	source ${root_path_prefix}${U2UP_KEYMAP_CONF_FILE}
+	if [ -n "$KEYMAP_SET" ] && [ $TARGET_DONE -eq 0 ]; then
+		loadkeys $KEYMAP_SET
+		rv=$?
+		if [ $rv -eq 0 ]; then
+			echo "KEYMAP=$KEYMAP_SET" > ${root_path_prefix}/etc/vconsole.conf
+			cat ${root_path_prefix}${U2UP_KEYMAP_CONF_FILE} | grep -v "TARGET_DONE=" > ${root_path_prefix}${U2UP_KEYMAP_CONF_FILE}_tmp
+			echo "TARGET_DONE=${new_target_done}" >> ${root_path_prefix}${U2UP_KEYMAP_CONF_FILE}_tmp
+			mv ${root_path_prefix}${U2UP_KEYMAP_CONF_FILE}_tmp ${root_path_prefix}${U2UP_KEYMAP_CONF_FILE}
+		fi
+	fi
+	return $rv
+}
+
+store_target_disk_selection() {
+	disk=$1
+
+	cat ${U2UP_TARGET_DISK_CONF_FILE} | grep -v "TARGET_DISK_SET=" > ${U2UP_TARGET_DISK_CONF_FILE}_tmp
+	if [ -n "$disk" ]; then
+		echo "TARGET_DISK_SET=$disk" >> ${U2UP_TARGET_DISK_CONF_FILE}_tmp
+	fi
+	mv ${U2UP_TARGET_DISK_CONF_FILE}_tmp ${U2UP_TARGET_DISK_CONF_FILE}
+}
+
+store_target_part_selection() {
+	part=$1
+
+	cat ${U2UP_TARGET_DISK_CONF_FILE} | grep -v "TARGET_PART_SET=" > ${U2UP_TARGET_DISK_CONF_FILE}_tmp
+	if [ -n "$part" ]; then
+		echo "TARGET_PART_SET=$part" >> ${U2UP_TARGET_DISK_CONF_FILE}_tmp
+	fi
+	mv ${U2UP_TARGET_DISK_CONF_FILE}_tmp ${U2UP_TARGET_DISK_CONF_FILE}
+}
+
+store_target_partsize_selection() {
+	local var_target_partsz_set=""
+	local var_target_partsz_current=""
+	local part=$(echo $@ | sed 's/RENAMED //' | sed 's/ .*//')
+	declare -i part_size=$(echo $@ | sed 's/.*://')
+
+	if [ $part_size -le 0 ]; then
+		return
+	fi
+	case $part in
+	boot)
+		var_target_partsz_set=TARGET_BOOT_PARTSZ_SET
+		var_target_partsz_current=target_boot_partsz_current
+		;;
+	log)
+		var_target_partsz_set=TARGET_LOG_PARTSZ_SET
+		var_target_partsz_current=target_log_partsz_current
+		;;
+	rootA)
+		var_target_partsz_set=TARGET_ROOTA_PARTSZ_SET
+		var_target_partsz_current=target_rootA_partsz_current
+		;;
+	rootB)
+		var_target_partsz_set=TARGET_ROOTB_PARTSZ_SET
+		var_target_partsz_current=target_rootB_partsz_current
+		;;
+	*)
+		exit;
+	esac
+
+	cat ${U2UP_TARGET_DISK_CONF_FILE} | grep -v "${var_target_partsz_set}=" > ${U2UP_TARGET_DISK_CONF_FILE}_tmp
+	echo "${var_target_partsz_set}=$part_size" >> ${U2UP_TARGET_DISK_CONF_FILE}_tmp
+	mv ${U2UP_TARGET_DISK_CONF_FILE}_tmp ${U2UP_TARGET_DISK_CONF_FILE}
+	echo "${var_target_partsz_current}=${part_size}"
+}
+
+store_net_internal_iface_selection() {
+	ifname=$1
+
+	cat ${U2UP_NETWORK_CONF_FILE} | grep -v "NET_INTERNAL_IFNAME_SET=" > ${U2UP_NETWORK_CONF_FILE}_tmp
+	if [ -n "$ifname" ]; then
+		echo "NET_INTERNAL_IFNAME_SET=$ifname" >> ${U2UP_NETWORK_CONF_FILE}_tmp
+	fi
+	mv ${U2UP_NETWORK_CONF_FILE}_tmp ${U2UP_NETWORK_CONF_FILE}
+}
+
+store_target_hostname_selection() {
+	local var_target_hostname_set=""
+	local var_target_hostname_current=""
+	local value="$(echo $@ | sed 's/[^:]*://' | sed 's/ *//')"
+	local name="$(echo $@ | sed 's/RENAMED //' | sed 's/:.*//')"
+
+	if [ -z "${value}" ] || [ "x${name}" = "x${value}" ]; then
+		return 0
+	fi
+	case $name in
+	"Hostname")
+		var_target_hostname_set=TARGET_HOSTNAME_SET
+		var_target_hostname_current=target_hostname_current
+		;;
+	*)
+		return 1;
+	esac
+
+	cat ${U2UP_TARGET_HOSTNAME_CONF_FILE} | grep -v "${var_target_hostname_set}=" > ${U2UP_TARGET_HOSTNAME_CONF_FILE}_tmp
+	echo "${var_target_hostname_set}=$value" >> ${U2UP_TARGET_HOSTNAME_CONF_FILE}_tmp
+	mv ${U2UP_TARGET_HOSTNAME_CONF_FILE}_tmp ${U2UP_TARGET_HOSTNAME_CONF_FILE}
+	echo "${var_target_hostname_current}=${value}"
+}
+
+store_net_config_selection() {
+	local var_net_config_set=""
+	local var_net_config_current=""
+	local value="$(echo $@ | sed 's/[^:]*://' | sed 's/ *//')"
+	local name="$(echo $@ | sed 's/RENAMED //' | sed 's/:.*//')"
+
+	if [ -z "${value}" ] || [ "x${name}" = "x${value}" ]; then
+		return 0
+	fi
+	case $name in
+	"IP address/mask")
+		var_net_config_set=NET_INTERNAL_ADDR_MASK_SET
+		var_net_config_current=net_internal_addr_mask_current
+		;;
+	"IP gateway")
+		var_net_config_set=NET_INTERNAL_GW_SET
+		var_net_config_current=net_internal_gw_current
+		;;
+	"DNS")
+		var_net_config_set=NET_DNS_SET
+		var_net_config_current=net_dns_current
+		;;
+	"Domains")
+		var_net_config_set=NET_DOMAINS_SET
+		var_net_config_current=net_domains_current
+		;;
+	*)
+		return 1;
+	esac
+
+	cat ${U2UP_NETWORK_CONF_FILE} | grep -v "${var_net_config_set}=" > ${U2UP_NETWORK_CONF_FILE}_tmp
+	echo "${var_net_config_set}=$value" >> ${U2UP_NETWORK_CONF_FILE}_tmp
+	mv ${U2UP_NETWORK_CONF_FILE}_tmp ${U2UP_NETWORK_CONF_FILE}
+	echo "${var_net_config_current}=${value}"
+}
+
+populate_u2up_configurations() {
+	local root_path_prefix=$1
+	local file=""
+	local rv=1
+	if [ -z "$root_path_prefix" ]; then
+		return $rv
+	fi
+	if [ ! -d "${root_path_prefix}${U2UP_CONF_DIR}" ]; then
+		rm -rf ${root_path_prefix}${U2UP_CONF_DIR}
+		rv=$?
+	fi
+	rm -rf ${root_path_prefix}${U2UP_CONF_DIR}
+	cp -a ${U2UP_CONF_DIR} ${root_path_prefix}${U2UP_CONF_DIR}
+	rv=$?
+	if [ $rv -eq 0 ]; then
+		for file in $(ls ${root_path_prefix}${U2UP_CONF_DIR}); do
+			cat ${root_path_prefix}${U2UP_CONF_DIR}/${file} | grep -v "TARGET_DONE=" > ${root_path_prefix}${U2UP_CONF_DIR}/${file}_tmp
+			echo "TARGET_DONE=0" >> ${root_path_prefix}${U2UP_CONF_DIR}/${file}_tmp
+			(( rv+=$? ))
+			mv ${root_path_prefix}${U2UP_CONF_DIR}/${file}_tmp ${root_path_prefix}${U2UP_CONF_DIR}/${file}
+			(( rv+=$? ))
+		done
+	fi
+	return $rv
+}
+

@@ -1,0 +1,15 @@
+[Unit]
+Description=Pre-configure any remaining U2UP config parameters during system boot.
+DefaultDependencies=no
+After=local-fs.target
+Before=sysinit.target
+Wants=sysinit.target
+
+[Service]
+Environment=HOME=/root
+WorkingDirectory=-/root
+ExecStart=-/usr/bin/u2up-pre-config.sh
+Type=oneshot
+
+[Install]
+WantedBy=sysinit.target
