@@ -11,6 +11,7 @@ SRC_URI = " \
            file://u2up-hag.sh \
            file://u2up-pre-config.sh \
            file://u2up-install-bash-lib \
+           file://u2up-pre-config.target \
            file://u2up-pre-config.service \
 "
 
@@ -19,13 +20,16 @@ do_patch () {
 	mv ${WORKDIR}/u2up-hag.sh ${S}/
 	mv ${WORKDIR}/u2up-pre-config.sh ${S}/
 	mv ${WORKDIR}/u2up-install-bash-lib ${S}/
+	mv ${WORKDIR}/u2up-pre-config.target ${S}/
 	mv ${WORKDIR}/u2up-pre-config.service ${S}/
 }
 
 do_install () {
-	install -d ${D}/etc/systemd/system
+	install -d ${D}/etc/systemd/system/u2up-pre-config.target.wants
 	install -m 0644 ${S}/u2up-pre-config.service ${D}/etc/systemd/system/
 	install -d ${D}/etc/u2up-conf.d
+	install -d ${D}/lib/systemd/system
+	install -m 0644 ${S}/u2up-pre-config.target ${D}/lib/systemd/system/
 	install -d ${D}/lib/u2up
 	install -m 0755 ${S}/u2up-install-bash-lib ${D}/lib/u2up/
 	install -d ${D}/usr/bin
@@ -36,8 +40,8 @@ do_install () {
 pkg_postinst_${PN}() {
 #!/bin/sh
 
-rm -f $D/etc/systemd/system/sysinit.target.wants/u2up-pre-config.service
-ln -s /etc/systemd/system/u2up-pre-config.service $D/etc/systemd/system/sysinit.target.wants/u2up-pre-config.service
+rm -f $D/etc/systemd/system/u2up-pre-config.target.wants/u2up-pre-config.service
+ln -s /etc/systemd/system/u2up-pre-config.service $D/etc/systemd/system/u2up-pre-config.target.wants/u2up-pre-config.service
 }
 
 FILES_${PN} += "etc lib usr"

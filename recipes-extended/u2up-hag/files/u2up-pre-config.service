@@ -2,14 +2,29 @@
 Description=Pre-configure any remaining U2UP config parameters during system boot.
 DefaultDependencies=no
 After=local-fs.target
-Before=sysinit.target
-Wants=sysinit.target
+#Before=sysinit.target
+Requires=sysinit.target
 
 [Service]
 Environment=HOME=/root
 WorkingDirectory=-/root
-ExecStart=-/usr/bin/u2up-pre-config.sh
+#Type=simple
+#Type=exec
 Type=oneshot
+#Type=idle
+#ExecStartPre=/bin/bash /usr/bin/u2up-pre-config.sh
+#ExecStartPre=/bin/kill -SIGRTMIN+21 1
+ExecStart=/bin/bash /usr/bin/u2up-pre-config.sh &
+#ExecStart=/bin/echo "Done!"
+ExecStartPost=/bin/systemctl isolate multi-user.target
+#ExecStartPost=/bin/kill -SIGUSR1 1
+#TimeoutStartSec=20
+TTYPath=/dev/console
+TTYReset=yes
+TTYVHangup=yes
+KillMode=process
+IgnoreSIGPIPE=no
+SendSIGHUP=yes
 
-[Install]
-WantedBy=sysinit.target
+#[Install]
+#WantedBy=sysinit.target

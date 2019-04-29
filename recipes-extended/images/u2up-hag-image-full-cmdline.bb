@@ -24,4 +24,6 @@ IMAGE_INSTALL = "\
     u2up-hag \
     "
 
+SYSTEMD_DEFAULT_TARGET = "u2up-pre-config.target"
+
 inherit core-image
