@@ -10,7 +10,9 @@
 [Unit]
 Description=U2UP pre-configure target
 Documentation=man:systemd.special(7)
-Requires=sysinit.target
+#Requires=sysinit.target
+Requires=basic.target
 Conflicts=rescue.service rescue.target
-After=sysinit.target rescue.service rescue.target
+#After=sysinit.target rescue.service rescue.target
+After=basic.target rescue.service rescue.target
 AllowIsolate=yes

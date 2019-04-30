@@ -1,9 +1,12 @@
 [Unit]
 Description=Pre-configure any remaining U2UP config parameters during system boot.
 DefaultDependencies=no
-After=local-fs.target
+#After=local-fs.target
+#After=dbus.service
+After=basic.target
 #Before=sysinit.target
-Requires=sysinit.target
+Requires=basic.target
+#Requires=sysinit.target
 
 [Service]
 Environment=HOME=/root
