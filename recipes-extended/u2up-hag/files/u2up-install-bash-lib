@@ -227,6 +227,38 @@ store_net_config_selection() {
 	echo "${var_net_config_current}=${value}"
 }
 
+enable_net_config_selection() {
+	local rv=1
+	local NET_INTERNAL_IFNAME_SET=""
+	local NET_INTERNAL_ADDR_MASK_SET=""
+	local NET_INTERNAL_GW_SET=""
+	local NET_DNS_SET=""
+	local NET_DOMAINS_SET=""
+	local TARGET_DONE=0
+	local root_path_prefix=${1:-"/"}
+	local new_target_done=${2:-0}
+
+	if [ ! -f "${U2UP_NETWORK_CONF_FILE}" ]; then
+		return 1
+	fi
+	source ${root_path_prefix}${U2UP_NETWORK_CONF_FILE}
+	if [ $TARGET_DONE -eq 0 ]; then
+		if [ -n "${NET_INTERNAL_IFNAME_SET}" ] && [ -n "${NET_INTERNAL_ADDR_MASK_SET}" ] && [ -n "${NET_INTERNAL_GW_SET}" ]; then
+			nmcli con add type ethernet con-name internal ifname ${NET_INTERNAL_IFNAME_SET} ip4 ${NET_INTERNAL_ADDR_MASK_SET} gw4 ${NET_INTERNAL_GW_SET}
+			rv=$?
+		fi
+		if [ $rv -eq 0 ] && [ -n "${NET_DNS_SET}" ]; then
+			nmcli con mod internal ipv4.dns "${NET_DNS_SET}"
+			rv=$?
+		fi
+		if [ $rv -eq 0 ]; then
+			set_target_done_for ${root_path_prefix}${U2UP_NETWORK_CONF_FILE} ${new_target_done}
+			rv=$?
+		fi
+	fi
+	return $rv
+}
+
 populate_u2up_configurations() {
 	local root_path_prefix=$1
 	local file=""
@@ -258,6 +290,7 @@ set -x
 	if [ ! -d "${root_path_prefix}${U2UP_CONF_DIR}" ]; then
 		return $rv
 	fi
+	rv=0
 	for file in $(ls ${root_path_prefix}${U2UP_CONF_DIR}); do
 		case $file in
 		$(basename ${root_path_prefix}${U2UP_KEYMAP_CONF_FILE}))
@@ -270,7 +303,8 @@ set -x
 			;;
 		$(basename ${root_path_prefix}${U2UP_TARGET_ADMIN_CONF_FILE}))
 			;;
-		$(basename ${root_path_prefix}${U2UP_TARGET_NETWORK_CONF_FILE}))
+		$(basename ${root_path_prefix}${U2UP_NETWORK_CONF_FILE}))
+			enable_net_config_selection ${root_path_prefix} 1
 			;;
 		esac
 	done
