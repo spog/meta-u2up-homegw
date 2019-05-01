@@ -191,6 +191,62 @@ enable_target_hostname_selection() {
 	return $rv
 }
 
+store_target_admin_selection() {
+	local var_target_admin_name_set=""
+	local var_target_admin_name_current=""
+	local value="$(echo $@ | sed 's/[^:]*://' | sed 's/ *//')"
+	local name="$(echo $@ | sed 's/RENAMED //' | sed 's/:.*//')"
+
+	if [ -z "${value}" ] || [ "x${name}" = "x${value}" ]; then
+		return 0
+	fi
+	case $name in
+	"Admin name")
+		var_target_admin_name_set=TARGET_ADMIN_NAME_SET
+		var_target_admin_name_current=target_admin_name_current
+		;;
+	*)
+		return 1;
+	esac
+
+	cat ${U2UP_TARGET_ADMIN_CONF_FILE} | grep -v "${var_target_admin_name_set}=" > ${U2UP_TARGET_ADMIN_CONF_FILE}_tmp
+	echo "${var_target_admin_name_set}=$value" >> ${U2UP_TARGET_ADMIN_CONF_FILE}_tmp
+	mv ${U2UP_TARGET_ADMIN_CONF_FILE}_tmp ${U2UP_TARGET_ADMIN_CONF_FILE}
+	echo "${var_target_admin_name_current}=${value}"
+}
+
+enable_target_admin_selection() {
+	local rv=1
+	local TARGET_ADMIN_NAME_SET=""
+	local TARGET_DONE=0
+	local root_path_prefix=${1:-"/"}
+	local new_target_done=${2:-0}
+
+	if [ ! -f "${U2UP_TARGET_ADMIN_CONF_FILE}" ]; then
+		return 1
+	fi
+	source ${root_path_prefix}${U2UP_TARGET_ADMIN_CONF_FILE}
+	if [ -n "$TARGET_ADMIN_NAME_SET" ] && [ $TARGET_DONE -eq 0 ]; then
+		useradd -m -c "Admin User" $TARGET_ADMIN_NAME_SET
+		rv=$?
+		if [ $rv -ne 0 ] && [ $rv -ne 9 ]; then
+			return 1
+		fi
+		passwd -de $TARGET_ADMIN_NAME_SET
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			return 1
+		fi
+		usermod -aG wheel $TARGET_ADMIN_NAME_SET
+		rv=$?
+		if [ $rv -eq 0 ]; then
+			set_target_done_for ${root_path_prefix}${U2UP_TARGET_ADMIN_CONF_FILE} ${new_target_done}
+			rv=$?
+		fi
+	fi
+	return $rv
+}
+
 store_net_config_selection() {
 	local var_net_config_set=""
 	local var_net_config_current=""
@@ -228,7 +284,7 @@ store_net_config_selection() {
 }
 
 enable_net_config_selection() {
-	local rv=1
+	local rv=0
 	local NET_INTERNAL_IFNAME_SET=""
 	local NET_INTERNAL_ADDR_MASK_SET=""
 	local NET_INTERNAL_GW_SET=""
@@ -295,16 +351,21 @@ set -x
 		case $file in
 		$(basename ${root_path_prefix}${U2UP_KEYMAP_CONF_FILE}))
 			enable_keymap_selection ${root_path_prefix} 1
+			rv=$?
 			;;
 		$(basename ${root_path_prefix}${U2UP_TARGET_DISK_CONF_FILE}))
 			;;
 		$(basename ${root_path_prefix}${U2UP_TARGET_HOSTNAME_CONF_FILE}))
 			enable_target_hostname_selection ${root_path_prefix} 1
+			rv=$?
 			;;
 		$(basename ${root_path_prefix}${U2UP_TARGET_ADMIN_CONF_FILE}))
+			enable_target_admin_selection ${root_path_prefix} 1
+			rv=$?
 			;;
 		$(basename ${root_path_prefix}${U2UP_NETWORK_CONF_FILE}))
 			enable_net_config_selection ${root_path_prefix} 1
+			rv=$?
 			;;
 		esac
 	done

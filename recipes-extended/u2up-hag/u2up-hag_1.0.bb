@@ -22,11 +22,14 @@ do_patch () {
 	mv ${WORKDIR}/u2up-install-bash-lib ${S}/
 	mv ${WORKDIR}/u2up-pre-config.target ${S}/
 	mv ${WORKDIR}/u2up-pre-config.service ${S}/
+	echo "%wheel ALL=(ALL) ALL" > ${S}/enable_wheel
 }
 
 do_install () {
 	install -d ${D}/etc/systemd/system/u2up-pre-config.target.wants
 	install -m 0644 ${S}/u2up-pre-config.service ${D}/etc/systemd/system/
+	install -m 0750 -d ${D}/etc/sudoers.d
+	install -m 0644 ${S}/enable_wheel ${D}/etc/sudoers.d/
 	install -d ${D}/etc/u2up-conf.d
 	install -d ${D}/lib/systemd/system
 	install -m 0644 ${S}/u2up-pre-config.target ${D}/lib/systemd/system/
