@@ -239,6 +239,17 @@ enable_target_admin_selection() {
 		fi
 		usermod -aG wheel $TARGET_ADMIN_NAME_SET
 		rv=$?
+		if [ $rv -ne 0 ]; then
+			return 1
+		fi
+		# Locking the root account and scrambling its password!
+		passwd -l root
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			return 1
+		fi
+		usermod -p '!' root
+		rv=$?
 		if [ $rv -eq 0 ]; then
 			set_target_done_for ${root_path_prefix}${U2UP_TARGET_ADMIN_CONF_FILE} ${new_target_done}
 			rv=$?
