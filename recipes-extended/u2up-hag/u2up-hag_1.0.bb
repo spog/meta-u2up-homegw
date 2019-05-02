@@ -23,7 +23,7 @@ do_patch () {
 	mv ${WORKDIR}/u2up-pre-config.target ${S}/
 	mv ${WORKDIR}/u2up-pre-config.service ${S}/
 	echo "%wheel ALL=(ALL) ALL" > ${S}/enable_wheel
-	echo "[ \$(id -Gn | grep -c wheel) -eq 1) && PATH=\$PATH:/usr/local/sbin:/usr/sbin:/sbin" > ${S}/wheel.sh
+	echo "[ \$(id -Gn | grep -c wheel) -eq 1 ] && PATH=\$PATH:/usr/local/sbin:/usr/sbin:/sbin" > ${S}/wheel.sh
 }
 
 do_install () {
