@@ -1,28 +1,17 @@
 [Unit]
-Description=Pre-configure any remaining U2UP config parameters during system boot.
+Description=Pre-configure U2UP config parameters during system boot.
 DefaultDependencies=no
-#After=local-fs.target
-#After=dbus.service
-#After=basic.target
 After=NetworkManager.service
-#Before=sysinit.target
 Requires=basic.target
-#Requires=sysinit.target
 
 [Service]
 Environment=HOME=/root
 WorkingDirectory=-/root
-#Type=simple
-#Type=exec
 Type=oneshot
-#Type=idle
-#ExecStartPre=/bin/bash /usr/bin/u2up-pre-config.sh
-#ExecStartPre=/bin/kill -SIGRTMIN+21 1
-ExecStart=/bin/bash /usr/bin/u2up-pre-config.sh &
-#ExecStart=/bin/echo "Done!"
+ExecStart=-/bin/bash /usr/bin/u2up-pre-config.sh &
 ExecStartPost=/bin/systemctl isolate multi-user.target
-#ExecStartPost=/bin/kill -SIGUSR1 1
-#TimeoutStartSec=20
+TimeoutStartSec=20
+ExecStopPost=/bin/systemctl isolate multi-user.target
 TTYPath=/dev/console
 TTYReset=yes
 TTYVHangup=yes
@@ -30,5 +19,3 @@ KillMode=process
 IgnoreSIGPIPE=no
 SendSIGHUP=yes
 
-#[Install]
-#WantedBy=sysinit.target

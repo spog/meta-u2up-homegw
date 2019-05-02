@@ -23,6 +23,7 @@ do_patch () {
 	mv ${WORKDIR}/u2up-pre-config.target ${S}/
 	mv ${WORKDIR}/u2up-pre-config.service ${S}/
 	echo "%wheel ALL=(ALL) ALL" > ${S}/enable_wheel
+	echo "[ \$(id -Gn | grep -c wheel) -eq 1) && PATH=\$PATH:/usr/local/sbin:/usr/sbin:/sbin" > ${S}/wheel.sh
 }
 
 do_install () {
@@ -30,6 +31,8 @@ do_install () {
 	install -m 0644 ${S}/u2up-pre-config.service ${D}/etc/systemd/system/
 	install -m 0750 -d ${D}/etc/sudoers.d
 	install -m 0644 ${S}/enable_wheel ${D}/etc/sudoers.d/
+	install -m 0755 -d ${D}/etc/profile.d
+	install -m 0644 ${S}/wheel.sh ${D}/etc/profile.d/
 	install -d ${D}/etc/u2up-conf.d
 	install -d ${D}/lib/systemd/system
 	install -m 0644 ${S}/u2up-pre-config.target ${D}/lib/systemd/system/

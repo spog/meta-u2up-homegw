@@ -339,7 +339,7 @@ populate_u2up_configurations() {
 }
 
 evaluate_u2up_configurations() {
-set -x
+#set -x
 	local root_path_prefix=${1:-"/"}
 	local file=""
 	local rv=1
