@@ -24,9 +24,13 @@ do_patch () {
 	mv ${WORKDIR}/u2up-pre-config.service ${S}/
 	echo "%wheel ALL=(ALL) ALL" > ${S}/enable_wheel
 	echo "[ \$(id -Gn | grep -c wheel) -eq 1 ] && PATH=\$PATH:/usr/local/sbin:/usr/sbin:/sbin" > ${S}/wheel.sh
+	echo "[Manager]" > ${S}/01-systemd-no-colors.conf
+	echo "LogColor=no" >> ${S}/01-systemd-no-colors.conf
 }
 
 do_install () {
+	install -d ${D}/etc/systemd/system.conf.d
+	install -m 0644 ${S}/01-systemd-no-colors.conf ${D}/etc/systemd/system.conf.d/
 	install -d ${D}/etc/systemd/system/u2up-pre-config.target.wants
 	install -m 0644 ${S}/u2up-pre-config.service ${D}/etc/systemd/system/
 	install -m 0750 -d ${D}/etc/sudoers.d
