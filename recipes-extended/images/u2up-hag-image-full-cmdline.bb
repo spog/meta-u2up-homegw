@@ -20,6 +20,8 @@ IMAGE_INSTALL = "\
     cockpit-system \
     cockpit-ws \
     networkmanager \
+    kernel-modules  \
+    nftables \
     firewalld \
     u2up-hag \
     "
