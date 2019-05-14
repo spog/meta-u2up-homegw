@@ -6,9 +6,15 @@ u2up_hag_REPO_VERSION=""
 
 # Repo: meta-u2up-cockpit
 meta_u2up_cockpit_REPO_NAME="meta-u2up-cockpit"
-meta_u2up_cockpit_REPO_URL=""
-meta_u2up_cockpit_REPO_BRANCH=""
+meta_u2up_cockpit_REPO_URL="https://github.com/spog/meta-u2up-cockpit.git"
+meta_u2up_cockpit_REPO_BRANCH="master"
 meta_u2up_cockpit_REPO_VERSION=""
+
+# Repo: meta-u2up-firewalld
+meta_u2up_firewalld_REPO_NAME="meta-u2up-firewalld"
+meta_u2up_firewalld_REPO_URL="https://github.com/spog/meta-u2up-firewalld.git"
+meta_u2up_firewalld_REPO_BRANCH="master"
+meta_u2up_firewalld_REPO_VERSION=""
 
 # Repo: meta-nodejs
 meta_nodejs_REPO_NAME="meta-nodejs"

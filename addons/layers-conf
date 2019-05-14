@@ -1,4 +1,4 @@
-U2UP_ADDONS_LAYERS="u2up-hag meta-u2up-cockpit meta-oe meta-python meta-networking"
+U2UP_ADDONS_LAYERS="u2up-hag meta-u2up-cockpit meta-u2up-firewalld meta-oe meta-python meta-networking"
 
 u2up_hag_LAYER_NAME="u2up-hag"
 u2up_hag_LAYER_REPO="u2up-hag"
@@ -6,7 +6,11 @@ u2up_hag_LAYER_PATH="../u2up/meta-u2up-hag"
 
 meta_u2up_cockpit_LAYER_NAME="meta-u2up-cockpit"
 meta_u2up_cockpit_LAYER_REPO="meta-u2up-cockpit"
-meta_u2up_cockpit_LAYER_PATH="../u2up/meta-u2up-cockpit"
+meta_u2up_cockpit_LAYER_PATH=""
+
+meta_u2up_firewalld_LAYER_NAME="meta-u2up-firewalld"
+meta_u2up_firewalld_LAYER_REPO="meta-u2up-firewalld"
+meta_u2up_firewalld_LAYER_PATH=""
 
 meta_oe_LAYER_NAME="meta-oe"
 meta_oe_LAYER_REPO="meta-openembedded"
