@@ -313,6 +313,10 @@ enable_net_config_selection() {
 		if [ -n "${NET_INTERNAL_IFNAME_SET}" ] && [ -n "${NET_INTERNAL_ADDR_MASK_SET}" ] && [ -n "${NET_INTERNAL_GW_SET}" ]; then
 			nmcli con add type ethernet con-name internal ifname ${NET_INTERNAL_IFNAME_SET} ip4 ${NET_INTERNAL_ADDR_MASK_SET} gw4 ${NET_INTERNAL_GW_SET}
 			rv=$?
+			if [ $rv -eq 0 ]; then
+				nmcli con mod internal connection.zone trusted
+				rv=$?
+			fi
 		fi
 		if [ $rv -eq 0 ] && [ -n "${NET_DNS_SET}" ]; then
 			nmcli con mod internal ipv4.dns "${NET_DNS_SET}"
