@@ -23,7 +23,7 @@ IMAGE_INSTALL = "\
     kernel-modules  \
     nftables \
     firewalld \
-    u2up-hag \
+    u2up-homegw \
     "
 
 SYSTEMD_DEFAULT_TARGET = "u2up-pre-config.target"

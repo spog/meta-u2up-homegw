@@ -8,7 +8,7 @@ PR = "r1"
 
 SRC_URI = " \
            file://LICENSE \
-           file://u2up-hag.sh \
+           file://u2up-homegw.sh \
            file://u2up-pre-config.sh \
            file://u2up-install-bash-lib \
            file://u2up-pre-config.target \
@@ -17,7 +17,7 @@ SRC_URI = " \
 
 do_patch () {
 	mv ${WORKDIR}/LICENSE ${S}/
-	mv ${WORKDIR}/u2up-hag.sh ${S}/
+	mv ${WORKDIR}/u2up-homegw.sh ${S}/
 	mv ${WORKDIR}/u2up-pre-config.sh ${S}/
 	mv ${WORKDIR}/u2up-install-bash-lib ${S}/
 	mv ${WORKDIR}/u2up-pre-config.target ${S}/
@@ -43,7 +43,7 @@ do_install () {
 	install -d ${D}/lib/u2up
 	install -m 0755 ${S}/u2up-install-bash-lib ${D}/lib/u2up/
 	install -d ${D}/usr/bin
-	install -m 0755 ${S}/u2up-hag.sh ${D}/usr/bin/
+	install -m 0755 ${S}/u2up-homegw.sh ${D}/usr/bin/
 	install -m 0755 ${S}/u2up-pre-config.sh ${D}/usr/bin/
 }
 

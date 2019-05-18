@@ -1,8 +1,8 @@
-# Repo: u2up-hag
-u2up_hag_REPO_NAME="u2up-hag"
-u2up_hag_REPO_URL=""
-u2up_hag_REPO_BRANCH=""
-u2up_hag_REPO_VERSION=""
+# Repo: u2up-homegw
+u2up_homegw_REPO_NAME="u2up-homegw"
+u2up_homegw_REPO_URL=""
+u2up_homegw_REPO_BRANCH=""
+u2up_homegw_REPO_VERSION=""
 
 # Repo: meta-u2up-cockpit
 meta_u2up_cockpit_REPO_NAME="meta-u2up-cockpit"
