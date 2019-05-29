@@ -40,7 +40,6 @@ $ cd distro-conf
 $ cp u2up-conf_default u2up-conf
 
 Set your own writable path for U2UP_YOCTO_SHARED variable in "u2up-conf" like:
-$ diff -up u2up-conf_default u2up-conf
 U2UP_YOCTO_SHARED="${HOME}/u2up-yocto-shared"
 
 Go back to your "u2up-yocto" top dir:
