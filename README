@@ -17,12 +17,12 @@ This is a "u2up-yocto" addons project for building your own Home GateWay.
 Getting started:
 ---------------
 Grab the "u2up-yocto" Linux distro build project by:
-$ git clone https://github.com/spog/u2up-yocto.git
+$ git clone https://github.com/spog/u2up-yocto.git u2up-yocto_homegw
 Cloning into 'u2up-yocto'...
 ...
 
 Change dir to prepare your "homegw" addons project:
-$ cd u2up-yocto/u2up
+$ cd u2up-yocto_homegw/u2up
 
 Grab the "meta-u2up-homegw" addons project by:
 $ git clone https://github.com/spog/meta-u2up-homegw.git
@@ -41,17 +41,7 @@ $ cp u2up-conf_default u2up-conf
 
 Set your own writable path for U2UP_YOCTO_SHARED variable in "u2up-conf" like:
 $ diff -up u2up-conf_default u2up-conf
---- u2up-conf_default	2019-03-30 15:03:57.276439550 +0100
-+++ u2up-conf	2019-03-30 16:49:20.146215027 +0100
-@@ -2,7 +2,7 @@
- U2UP_DIR="u2up"
- U2UP_REPOS_DIR="repos"
- U2UP_ADDONS_DIR="addons"
--U2UP_YOCTO_SHARED=""
-+U2UP_YOCTO_SHARED="${HOME}/u2up-yocto-shared"
- 
- # U2UP base layers:
- U2UP_BASE_LAYERS="meta meta-poky meta-yocto-bsp"
+U2UP_YOCTO_SHARED="${HOME}/u2up-yocto-shared"
 
 Go back to your "u2up-yocto" top dir:
 $ cd ..
