@@ -16,9 +16,3 @@ meta_u2up_firewalld_REPO_URL="https://github.com/spog/meta-u2up-firewalld.git"
 meta_u2up_firewalld_REPO_BRANCH="master"
 meta_u2up_firewalld_REPO_VERSION="23b1a253d4d690a2a32197dbba7b6e3edf905605"
 
-# Repo: meta-nodejs
-meta_nodejs_REPO_NAME="meta-nodejs"
-meta_nodejs_REPO_URL="https://github.com/imyller/meta-nodejs.git"
-meta_nodejs_REPO_BRANCH="master"
-meta_nodejs_REPO_VERSION="eec531e97a17bfd406f3bf76dee4057dcf5286a4"
-

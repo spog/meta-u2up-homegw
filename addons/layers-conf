@@ -24,7 +24,3 @@ meta_networking_LAYER_NAME="meta-networking"
 meta_networking_LAYER_REPO="meta-openembedded"
 meta_networking_LAYER_PATH="${meta_networking_LAYER_NAME}"
 
-meta_nodejs_LAYER_NAME="meta-nodejs"
-meta_nodejs_LAYER_REPO="meta-nodejs"
-meta_nodejs_LAYER_PATH=""
-
