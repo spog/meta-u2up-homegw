@@ -14,6 +14,7 @@ U2UP_TARGET_DISK_CONF_FILE=${U2UP_CONF_DIR}/20-target_disk-conf
 U2UP_TARGET_HOSTNAME_CONF_FILE=${U2UP_CONF_DIR}/30-hostname-conf
 U2UP_TARGET_ADMIN_CONF_FILE=${U2UP_CONF_DIR}/40-admin-conf
 U2UP_NETWORK_CONF_FILE=${U2UP_CONF_DIR}/50-network-conf
+U2UP_INSTALL_REPO_CONF_FILE=${U2UP_CONF_DIR}/60-install_repo-conf
 
 U2UP_TEMP_DIR="/tmp/u2up-temp"
 if [ ! -d "${U2UP_TEMP_DIR}" ]; then
@@ -330,6 +331,60 @@ enable_net_config_selection() {
 	return $rv
 }
 
+store_install_repo_selection() {
+	local var_install_repo_set=""
+	local var_install_repo_current=""
+	local value="$(echo $@ | sed 's/[^:]*://' | sed 's/ *//')"
+	local name="$(echo $@ | sed 's/RENAMED //' | sed 's/:.*//')"
+
+	if [ -z "${value}" ] || [ "x${name}" = "x${value}" ]; then
+		return 0
+	fi
+	case $name in
+	"Base URL")
+		var_install_repo_set=INSTALL_REPO_BASE_URL_SET
+		var_install_repo_current=install_repo_base_url_current
+		;;
+	*)
+		return 1;
+	esac
+
+	cat ${U2UP_INSTALL_REPO_CONF_FILE} | grep -v "${var_install_repo_set}=" > ${U2UP_INSTALL_REPO_CONF_FILE}_tmp
+	echo "${var_install_repo_set}=$value" >> ${U2UP_INSTALL_REPO_CONF_FILE}_tmp
+	mv ${U2UP_INSTALL_REPO_CONF_FILE}_tmp ${U2UP_INSTALL_REPO_CONF_FILE}
+	echo "${var_install_repo_current}=${value}"
+}
+
+enable_install_repo_selection() {
+	local rv=0
+	local INSTALL_REPO_BASE_URL_SET=""
+	local TARGET_DONE=0
+	local root_path_prefix=${1:-"/"}
+	local new_target_done=${2:-0}
+
+	if [ ! -f "${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
+		return 1
+	fi
+	source ${root_path_prefix}${U2UP_INSTALL_REPO_CONF_FILE}
+	if [ $TARGET_DONE -eq 0 ]; then
+		if [ -n "${INSTALL_REPO_BASE_URL_SET}" ]; then
+			mkdir -p ${root_path_prefix}/etc/yum.repos.d
+			echo "[base-repo]" > ${root_path_prefix}/etc/yum.repos.d/base.repo
+			echo "name=Base installation repository" >> ${root_path_prefix}/etc/yum.repos.d/base.repo
+			echo "baseurl=${INSTALL_REPO_BASE_URL_SET}" >> ${root_path_prefix}/etc/yum.repos.d/base.repo
+			echo "enabled=1" >> ${root_path_prefix}/etc/yum.repos.d/base.repo
+			echo "metadata_expire=0" >> ${root_path_prefix}/etc/yum.repos.d/base.repo
+			echo "gpgcheck=0" >> ${root_path_prefix}/etc/yum.repos.d/base.repo
+			set_target_done_for ${root_path_prefix}${U2UP_INSTALL_REPO_CONF_FILE} ${new_target_done}
+			rv=$?
+		else
+			rm -rf /etc/yum.repos.d
+			rv=$?
+		fi
+	fi
+	return $rv
+}
+
 populate_u2up_configurations() {
 	local root_path_prefix=$1
 	local file=""
@@ -380,6 +435,10 @@ evaluate_u2up_configurations() {
 			;;
 		$(basename ${root_path_prefix}${U2UP_NETWORK_CONF_FILE}))
 			enable_net_config_selection ${root_path_prefix} 1
+			rv=$?
+			;;
+		$(basename ${root_path_prefix}${U2UP_INSTALL_REPO_CONF_FILE}))
+			enable_install_repo_selection ${root_path_prefix} 1
 			rv=$?
 			;;
 		esac
