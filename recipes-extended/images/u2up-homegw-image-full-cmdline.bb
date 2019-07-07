@@ -24,6 +24,7 @@ IMAGE_INSTALL = "\
     nftables \
     firewalld \
     u2up-homegw \
+    u2up-pc-installer \
     "
 
 SYSTEMD_DEFAULT_TARGET = "u2up-pre-config.target"

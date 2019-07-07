@@ -10,18 +10,18 @@ SRC_URI = " \
            file://LICENSE \
            file://u2up-homegw.sh \
            file://u2up-pre-config.sh \
-           file://u2up-install-bash-lib \
            file://u2up-pre-config.target \
            file://u2up-pre-config.service \
+           file://u2up-homegw-installer.sh \
 "
 
 do_patch () {
 	mv ${WORKDIR}/LICENSE ${S}/
 	mv ${WORKDIR}/u2up-homegw.sh ${S}/
 	mv ${WORKDIR}/u2up-pre-config.sh ${S}/
-	mv ${WORKDIR}/u2up-install-bash-lib ${S}/
 	mv ${WORKDIR}/u2up-pre-config.target ${S}/
 	mv ${WORKDIR}/u2up-pre-config.service ${S}/
+	mv ${WORKDIR}/u2up-homegw-installer.sh ${S}/
 	echo "%wheel ALL=(ALL) ALL" > ${S}/enable_wheel
 	echo "[ \$(id -Gn | grep -c wheel) -eq 1 ] && PATH=\$PATH:/usr/local/sbin:/usr/sbin:/sbin" > ${S}/wheel.sh
 	echo "[Manager]" > ${S}/01-systemd-no-colors.conf
@@ -40,11 +40,10 @@ do_install () {
 	install -d ${D}/etc/u2up-conf.d
 	install -d ${D}/lib/systemd/system
 	install -m 0644 ${S}/u2up-pre-config.target ${D}/lib/systemd/system/
-	install -d ${D}/lib/u2up
-	install -m 0755 ${S}/u2up-install-bash-lib ${D}/lib/u2up/
 	install -d ${D}/usr/bin
 	install -m 0755 ${S}/u2up-homegw.sh ${D}/usr/bin/
 	install -m 0755 ${S}/u2up-pre-config.sh ${D}/usr/bin/
+	install -m 0755 ${S}/u2up-homegw-installer.sh ${D}/usr/bin/
 }
 
 pkg_postinst_${PN}() {
