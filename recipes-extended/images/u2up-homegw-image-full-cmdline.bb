@@ -25,6 +25,8 @@ IMAGE_INSTALL = "\
     firewalld \
     u2up-homegw \
     u2up-pc-installer \
+    dialog \
+    dosfstools \
     "
 
 SYSTEMD_DEFAULT_TARGET = "u2up-pre-config.target"

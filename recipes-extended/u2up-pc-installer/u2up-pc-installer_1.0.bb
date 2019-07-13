@@ -27,7 +27,7 @@ do_install () {
 	install -d ${D}/usr/bin
 	install -m 0755 ${S}/u2up-pc-installer.sh ${D}/usr/bin/
 	cd ${D}
-	tar czvf ${S}/${PN}_${PV}.tgz ./
+	tar czvf ${S}/${PN}-${PV}.tgz ./
 }
 
 FILES_${PN} += "etc lib usr"
@@ -36,10 +36,10 @@ RDEPENDS_${PN} = "bash"
 
 do_deploy() {
 	install -d ${DEPLOYDIR}
-	install ${S}/${PN}_${PV}.tgz ${DEPLOYDIR}/
+	install ${S}/${PN}-${PV}.tgz ${DEPLOYDIR}/
 	cd ${DEPLOYDIR}
 	rm -f ${PN}.tgz
-	ln -sf ${PN}_${PV}.tgz ${PN}.tgz
+	ln -sf ${PN}-${PV}.tgz ${PN}.tgz
 }
 
 addtask deploy before do_build after do_install

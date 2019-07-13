@@ -46,9 +46,9 @@ Go back to your "u2up-yocto" top dir:
 $ cd ..
 
 Start your build:
-$ ./distro intel-corei7-64 bitbake u2up-homegw-image-full-cmdline
+$ ./distro intel-corei7-64 bitbake u2up-homegw-bundle
 
-Find built images in "u2up/build.intel-corei7-64_thud/tmp/deploy/images/intel-corei7-64".
+Find built images bundle in "u2up/build.intel-corei7-64_thud/tmp/deploy/images/intel-corei7-64".
 
 First installation:
 - Check the "meta-u2up-pc-installer" project: https://github.com/spog/meta-u2up-pc-installer

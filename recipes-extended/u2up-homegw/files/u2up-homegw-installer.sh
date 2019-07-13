@@ -5,6 +5,7 @@
 #
 #set -xe
 
+U2UP_CONF_DIR_PREFIX="/var/local"
 U2UP_INSTALL_BASH_LIB="/lib/u2up/u2up-install-bash-lib"
 if [ ! -f "${U2UP_INSTALL_BASH_LIB}" ]; then
 	echo "Program terminated (missing: ${U2UP_INSTALL_BASH_LIB})!"
@@ -13,15 +14,60 @@ fi
 source ${U2UP_INSTALL_BASH_LIB}
 
 U2UP_IMAGES_DIR="/var/lib/u2up-images"
-if [ ! -d "${U2UP_IMAGES_DIR}" ]; then
-	echo "Program terminated (missing: ${U2UP_IMAGES_DIR})!"
+U2UP_IMAGES_BUNDLE_NAME="u2up-homegw-bundle"
+U2UP_IMAGES_BUNDLE_ARCHIVE=${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_NAME}.tar
+if [ ! -f "${U2UP_IMAGES_BUNDLE_ARCHIVE}" ]; then
+	echo "Program terminated (missing: ${U2UP_IMAGES_BUNDLE_ARCHIVE})!"
 	exit 1
 fi
-U2UP_HAG_IMAGE_ARCHIVE=${U2UP_IMAGES_DIR}/u2up-homegw-image-full-cmdline-intel-corei7-64.tar.gz
-U2UP_KERNEL_MODULES_ARCHIVE=${U2UP_IMAGES_DIR}/modules-intel-corei7-64.tgz
-U2UP_KERNEL_IMAGE=${U2UP_IMAGES_DIR}/bzImage-intel-corei7-64.bin
-U2UP_INITRD_IMAGE=${U2UP_IMAGES_DIR}/microcode.cpio
-U2UP_EFI_FALLBACK_IMAGE=${U2UP_IMAGES_DIR}/bootx64.efi
+U2UP_IMAGES_BUNDLE_ARCHIVE_SUM=${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_NAME}.tar.sha256
+if [ ! -f "${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}" ]; then
+	echo "Program terminated (missing: ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM})!"
+	exit 1
+fi
+
+cd ${U2UP_IMAGES_DIR}
+ln -sf $(basename ${U2UP_IMAGES_BUNDLE_ARCHIVE}) $(cat ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM} | sed -e 's%^.* %%g')
+sha256sum -c ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
+if [ $? -ne 0 ]; then
+	echo "Program terminated (checksum mismatch: ${U2UP_IMAGES_BUNDLE_ARCHIVE})!"
+	exit 1
+fi
+cd -
+
+MACHINE="intel-corei7-64"
+
+U2UP_FS_IMAGE_ARCHIVE=u2up-homegw-image-full-cmdline
+#U2UP_KERNEL_MODULES_ARCHIVE=modules
+U2UP_KERNEL_IMAGE=bzImage
+U2UP_INITRD_IMAGE=microcode
+U2UP_EFI_FALLBACK_IMAGE=bootx64.efi
+
+tar tvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz
+if [ $? -ne 0 ]; then
+	echo "Program terminated (bundle not containing: ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz)!"
+	exit 1
+fi
+#tar tvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_KERNEL_MODULES_ARCHIVE}-${MACHINE}.tgz
+#if [ $? -ne 0 ]; then
+#	echo "Program terminated (bundle not containing: ${U2UP_KERNEL_MODULES_ARCHIVE}-${MACHINE}.tgz)!"
+#	exit 1
+#fi
+tar tvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin
+if [ $? -ne 0 ]; then
+	echo "Program terminated (bundle not containing: ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin)!"
+	exit 1
+fi
+tar tvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_INITRD_IMAGE}.cpio
+if [ $? -ne 0 ]; then
+	echo "Program terminated (bundle not containing: ${U2UP_INITRD_IMAGE}.cpio)!"
+	exit 1
+fi
+tar tvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} systemd-${U2UP_EFI_FALLBACK_IMAGE}
+if [ $? -ne 0 ]; then
+	echo "Program terminated (bundle not containing: systemd-${U2UP_EFI_FALLBACK_IMAGE})!"
+	exit 1
+fi
 
 DIALOG_CANCEL=1
 DIALOG_ESC=255
@@ -1128,7 +1174,7 @@ populate_root_filesystem() {
 	fi
 	echo "Extracting root filesystem archive:"
 	set -x
-	tar -C /mnt -xzf ${U2UP_HAG_IMAGE_ARCHIVE}
+	tar xvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz | tar xz -C /mnt
 	rv=$?
 	set +x
 	if [ $rv -ne 0 ]; then
@@ -1136,7 +1182,7 @@ populate_root_filesystem() {
 	fi
 #	echo "Extracting kernel modules archive:"
 #	set -x
-#	tar -C /mnt -xzf ${U2UP_KERNEL_MODULES_ARCHIVE}
+#	tar xvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_KERNEL_MODULES_IMAGE_ARCHIVE}-${MACHINE}.tgz | tar xz -C /mnt
 #	rv=$?
 #	set +x
 #	if [ $rv -ne 0 ]; then
@@ -1203,12 +1249,18 @@ populate_root_filesystem() {
 	mkdir -p /mnt/EFI/BOOT
 	mkdir -p /mnt/loader/entries
 	set -x
-	cp ${U2UP_KERNEL_IMAGE} /mnt/bzImage${root_part_suffix}
+	tar xvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /mnt ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin
 	(( rv+=$? ))
-	cp ${U2UP_INITRD_IMAGE} /mnt/microcode${root_part_suffix}.cpio
+	mv /mnt/${U2UP_KERNEL_IMAGE}-${MACHINE}.bin /mnt/bzImage${root_part_suffix}
+	(( rv+=$? ))
+	tar xvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /mnt ${U2UP_INITRD_IMAGE}.cpio
+	(( rv+=$? ))
+	mv /mnt/${U2UP_INITRD_IMAGE}.cpio /mnt/microcode${root_part_suffix}.cpio
 	(( rv+=$? ))
 	if [ ! -f "/mnt/EFI/BOOT/bootx64.efi" ]; then
-		cp ${U2UP_EFI_FALLBACK_IMAGE} /mnt/EFI/BOOT
+		tar xvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /mnt/EFI/BOOT systemd-${U2UP_EFI_FALLBACK_IMAGE}
+		(( rv+=$? ))
+		mv /mnt/EFI/BOOT/systemd-${U2UP_EFI_FALLBACK_IMAGE} /mnt/EFI/BOOT/${U2UP_EFI_FALLBACK_IMAGE}
 		(( rv+=$? ))
 	fi
 	set +x
