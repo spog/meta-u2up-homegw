@@ -4,6 +4,7 @@
 #
 #set -xe
 
+U2UP_CONF_DIR_PREFIX=""
 U2UP_INSTALL_BASH_LIB="/lib/u2up/u2up-install-bash-lib"
 if [ ! -f "${U2UP_INSTALL_BASH_LIB}" ]; then
 	echo "Program terminated (missing: ${U2UP_INSTALL_BASH_LIB})!"
@@ -276,8 +277,8 @@ display_target_part_submenu() {
 }
 
 check_target_disk_set() {
-	if [ -f "${U2UP_TARGET_DISK_CONF_FILE}" ]; then
-		source $U2UP_TARGET_DISK_CONF_FILE
+	if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
+		source ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 	else
 		TARGET_DISK_SET=""
 	fi
@@ -288,8 +289,8 @@ check_target_disk_set() {
 }
 
 check_net_internal_ifname_set() {
-	if [ -f "${U2UP_NETWORK_CONF_FILE}" ]; then
-		source $U2UP_NETWORK_CONF_FILE
+	if [ -f "${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
+		source ${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
 	else
 		NET_INTERNAL_IFNAME_SET=""
 	fi
@@ -300,16 +301,16 @@ check_net_internal_ifname_set() {
 }
 
 check_install_repo_config_set() {
-	if [ -f "${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
-		source $U2UP_INSTALL_REPO_CONF_FILE
+	if [ -f "${U2UP_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
+		source ${U2UP_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}
 	else
 		INSTALL_REPO_BASE_URL_SET=""
 	fi
 }
 
 check_target_part_set() {
-	if [ -f "${U2UP_TARGET_DISK_CONF_FILE}" ]; then
-		source $U2UP_TARGET_DISK_CONF_FILE
+	if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
+		source ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 	else
 		TARGET_PART_SET=""
 	fi
@@ -320,8 +321,8 @@ check_target_part_set() {
 }
 
 check_target_part_sizes_set() {
-	if [ -f "${U2UP_TARGET_DISK_CONF_FILE}" ]; then
-		source $U2UP_TARGET_DISK_CONF_FILE
+	if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
+		source ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 	else
 		TARGET_BOOT_PARTSZ_SET=""
 	fi
@@ -351,8 +352,8 @@ check_target_disk_configuration() {
 }
 
 check_network_configuration() {
-	if [ -f "${U2UP_NETWORK_CONF_FILE}" ]; then
-		source $U2UP_NETWORK_CONF_FILE
+	if [ -f "${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
+		source ${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
 	else
 		NET_INTERNAL_IFNAME_SET=""
 	fi
@@ -495,8 +496,8 @@ check_current_target_disk_setup() {
 	local sectors_in_kib=0
 	(( sectors_in_kib=1024/$(cat /sys/block/${TARGET_DISK_SET}/queue/hw_sector_size) ))
 
-	if [ -f "${U2UP_TARGET_DISK_CONF_FILE}" ]; then
-		source $U2UP_TARGET_DISK_CONF_FILE
+	if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
+		source ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 	else
 		TARGET_BOOT_PARTSZ_SET=""
 	fi
@@ -798,16 +799,16 @@ display_target_partsizes_submenu() {
 		esac
 
 		current_item="$(get_item_selection $selection)"
-		current_set="$(store_target_partsize_selection $selection)"
+		current_set="$(store_target_partsize_selection ${U2UP_CONF_DIR} $selection)"
 		if [ -n "$current_set" ]; then
 			#Resize pressed: set new dialog values
 			eval $current_set
 		else
 			#Ok
-			store_target_partsize_selection "boot :${target_boot_partsz_current}"
-			store_target_partsize_selection "log :${target_log_partsz_current}"
-			store_target_partsize_selection "rootA :${target_rootA_partsz_current}"
-			store_target_partsize_selection "rootB :${target_rootB_partsz_current}"
+			store_target_partsize_selection ${U2UP_CONF_DIR} "boot :${target_boot_partsz_current}"
+			store_target_partsize_selection ${U2UP_CONF_DIR} "log :${target_log_partsz_current}"
+			store_target_partsize_selection ${U2UP_CONF_DIR} "rootA :${target_rootA_partsz_current}"
+			store_target_partsize_selection ${U2UP_CONF_DIR} "rootB :${target_rootB_partsz_current}"
 			execute_target_repartition
 			return $?
 		fi
@@ -846,13 +847,13 @@ display_target_hostname_submenu() {
 		esac
 
 		current_item="$(get_item_selection $selection)"
-		current_set="$(store_target_hostname_selection $selection)"
+		current_set="$(store_target_hostname_selection ${U2UP_CONF_DIR} $selection)"
 		if [ -n "$current_set" ]; then
 			#Resize pressed: set new dialog values
 			eval $current_set
 		else
 			#Ok
-			store_target_hostname_selection "Hostname: ${target_hostname_current}"
+			store_target_hostname_selection ${U2UP_CONF_DIR} "Hostname: ${target_hostname_current}"
 			(( rv+=$? ))
 			return $rv
 		fi
@@ -891,13 +892,13 @@ display_target_admin_submenu() {
 		esac
 
 		current_item="$(get_item_selection $selection)"
-		current_set="$(store_target_admin_selection $selection)"
+		current_set="$(store_target_admin_selection ${U2UP_CONF_DIR} $selection)"
 		if [ -n "$current_set" ]; then
 			#Resize pressed: set new dialog values
 			eval $current_set
 		else
 			#Ok
-			store_target_admin_selection "Admin name: ${target_admin_name_current}"
+			store_target_admin_selection ${U2UP_CONF_DIR} "Admin name: ${target_admin_name_current}"
 			(( rv+=$? ))
 			return $rv
 		fi
@@ -950,19 +951,19 @@ display_net_config_submenu() {
 		esac
 
 		current_item="$(get_item_selection $selection)"
-		current_set="$(store_net_config_selection $selection)"
+		current_set="$(store_net_config_selection ${U2UP_CONF_DIR} $selection)"
 		if [ -n "$current_set" ]; then
 			#Resize pressed: set new dialog values
 			eval $current_set
 		else
 			#Ok
-			store_net_config_selection "IP address/mask: ${net_internal_addr_mask_current}"
+			store_net_config_selection ${U2UP_CONF_DIR} "IP address/mask: ${net_internal_addr_mask_current}"
 			(( rv+=$? ))
-			store_net_config_selection "IP gateway: ${net_internal_gw_current}"
+			store_net_config_selection ${U2UP_CONF_DIR} "IP gateway: ${net_internal_gw_current}"
 			(( rv+=$? ))
-			store_net_config_selection "DNS: ${net_dns_current}"
+			store_net_config_selection ${U2UP_CONF_DIR} "DNS: ${net_dns_current}"
 			(( rv+=$? ))
-			store_net_config_selection "Domains: ${net_domains_current}"
+			store_net_config_selection ${U2UP_CONF_DIR} "Domains: ${net_domains_current}"
 			(( rv+=$? ))
 			return $rv
 		fi
@@ -985,8 +986,8 @@ execute_net_reconfiguration() {
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
-	if [ -f "${U2UP_NETWORK_CONF_FILE}" ]; then
-		source $U2UP_NETWORK_CONF_FILE
+	if [ -f "${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
+		source ${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
 	fi
 	cat > ${TARGET_ROOT_PATH_PREFIX}etc/systemd/network/10-internal-static.network << EOF
 [Match]
@@ -1039,13 +1040,13 @@ display_install_repo_config_submenu() {
 		esac
 
 		current_item="$(get_item_selection $selection)"
-		current_set="$(store_install_repo_selection $selection)"
+		current_set="$(store_install_repo_selection ${U2UP_CONF_DIR} $selection)"
 		if [ -n "$current_set" ]; then
 			#Resize pressed: set new dialog values
 			eval $current_set
 		else
 			#Ok
-			store_install_repo_selection "Base URL: ${install_repo_base_url_current}"
+			store_install_repo_selection ${U2UP_CONF_DIR} "Base URL: ${install_repo_base_url_current}"
 			(( rv+=$? ))
 			return $rv
 		fi
@@ -1058,8 +1059,8 @@ check_create_filesystems() {
 	local fstype=""
 	local rv=1
 
-	if [ -f "${U2UP_TARGET_DISK_CONF_FILE}" ]; then
-		source $U2UP_TARGET_DISK_CONF_FILE
+	if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
+		source ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 	fi
 	if [ -z "$TARGET_DISK_SET" ] || [ -z "TARGET_PART_SET" ]; then
 		return $rv
@@ -1143,8 +1144,8 @@ populate_root_filesystem() {
 	local root_part_uuid=""
 	local rv=1
 
-	if [ -f "${U2UP_TARGET_DISK_CONF_FILE}" ]; then
-		source $U2UP_TARGET_DISK_CONF_FILE
+	if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
+		source ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 	fi
 	if [ -z "$TARGET_DISK_SET" ] || [ -z "TARGET_PART_SET" ]; then
 		return $rv
@@ -1196,7 +1197,7 @@ populate_root_filesystem() {
 	fi
 	echo "Configure target keyboard mapping:"
 	set -x
-	enable_keymap_selection "/mnt" 1
+	enable_keymap_selection 1 "/mnt"
 	(( rv+=$? ))
 	set +x
 	if [ $rv -ne 0 ]; then
@@ -1220,7 +1221,7 @@ populate_root_filesystem() {
 	fi
 	echo "Done configuring target disk and partitions:"
 	set -x
-	set_target_done_for /mnt/${U2UP_TARGET_DISK_CONF_FILE} 1
+	set_target_done_for /mnt/${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE} 1
 	(( rv+=$? ))
 	set +x
 	if [ $rv -ne 0 ]; then
@@ -1359,11 +1360,11 @@ main_loop () {
 	local INSTALL_REPO_BASE_URL=""
 
 	while true; do
-		if [ -f "${U2UP_KEYMAP_CONF_FILE}" ]; then
-			source $U2UP_KEYMAP_CONF_FILE
+		if [ -f "${U2UP_CONF_DIR}/${U2UP_KEYMAP_CONF_FILE}" ]; then
+			source ${U2UP_CONF_DIR}/${U2UP_KEYMAP_CONF_FILE}
 		fi
-		if [ -f "${U2UP_TARGET_DISK_CONF_FILE}" ]; then
-			source $U2UP_TARGET_DISK_CONF_FILE
+		if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
+			source ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 		fi
 		root_part_label=""
 		if [ -n "${TARGET_PART_SET}" ]; then
@@ -1373,21 +1374,21 @@ main_loop () {
 				root_part_label="rootB"
 			fi
 		fi
-		if [ -f "${U2UP_TARGET_HOSTNAME_CONF_FILE}" ]; then
-			source $U2UP_TARGET_HOSTNAME_CONF_FILE
+		if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE}" ]; then
+			source ${U2UP_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE}
 		fi
-		if [ -f "${U2UP_TARGET_ADMIN_CONF_FILE}" ]; then
-			source $U2UP_TARGET_ADMIN_CONF_FILE
+		if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_ADMIN_CONF_FILE}" ]; then
+			source ${U2UP_CONF_DIR}/${U2UP_TARGET_ADMIN_CONF_FILE}
 		fi
-		if [ -f "${U2UP_NETWORK_CONF_FILE}" ]; then
-			source $U2UP_NETWORK_CONF_FILE
+		if [ -f "${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
+			source ${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
 		fi
 		net_internal_mac=""
 		if [ -n "${NET_INTERNAL_IFNAME_SET}" ]; then
 			net_internal_mac="$(ip link show dev $NET_INTERNAL_IFNAME_SET | grep "link\/ether" | sed 's/ *link\/ether *//' | sed 's/ .*//')"
 		fi
-		if [ -f "${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
-			source $U2UP_INSTALL_REPO_CONF_FILE
+		if [ -f "${U2UP_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
+			source ${U2UP_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}
 		fi
 
 		exec 3>&1
@@ -1456,10 +1457,10 @@ main_loop () {
 			rv=$?
 			if [ $rv -ne 0 ]; then
 				# Restore old partition sizes
-				store_target_partsize_selection "boot :${target_boot_partsz_old}"
-				store_target_partsize_selection "log :${target_log_partsz_old}"
-				store_target_partsize_selection "rootA :${target_rootA_partsz_old}"
-				store_target_partsize_selection "rootB :${target_rootB_partsz_old}"
+				store_target_partsize_selection ${U2UP_CONF_DIR} "boot :${target_boot_partsz_old}"
+				store_target_partsize_selection ${U2UP_CONF_DIR} "log :${target_log_partsz_old}"
+				store_target_partsize_selection ${U2UP_CONF_DIR} "rootA :${target_rootA_partsz_old}"
+				store_target_partsize_selection ${U2UP_CONF_DIR} "rootB :${target_rootB_partsz_old}"
 			fi
 			;;
 		4)
@@ -1490,16 +1491,16 @@ main_loop () {
 			if [ $rv -ne 0 ]; then
 				# Restore old network configuration
 				if [ -n "${net_internal_addr_mask_old}" ]; then
-					store_net_config_selection "IP address/mask: ${net_internal_addr_mask_old}"
+					store_net_config_selection ${U2UP_CONF_DIR} "IP address/mask: ${net_internal_addr_mask_old}"
 				fi
 				if [ -n "${net_internal_gw_old}" ]; then
-					store_net_config_selection "IP gateway: ${net_internal_gw_old}"
+					store_net_config_selection ${U2UP_CONF_DIR} "IP gateway: ${net_internal_gw_old}"
 				fi
 				if [ -n "${net_dns_old}" ]; then
-					store_net_config_selection "DNS: ${net_dns_old}"
+					store_net_config_selection ${U2UP_CONF_DIR} "DNS: ${net_dns_old}"
 				fi
 				if [ -n "${net_domains_old}" ]; then
-					store_net_config_selection "Domains: ${net_domains_old}"
+					store_net_config_selection ${U2UP_CONF_DIR} "Domains: ${net_domains_old}"
 				fi
 			else
 				execute_net_reconfiguration "/"
@@ -1513,7 +1514,7 @@ main_loop () {
 			if [ $rv -ne 0 ]; then
 				# Restore old installation packages repo configuration
 				if [ -n "${install_repo_base_url_old}" ]; then
-					store_install_repo_selection "Base URL: ${install_repo_base_url_old}"
+					store_install_repo_selection ${U2UP_CONF_DIR} "Base URL: ${install_repo_base_url_old}"
 				fi
 			fi
 			;;

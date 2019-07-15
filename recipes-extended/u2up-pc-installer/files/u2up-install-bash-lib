@@ -9,32 +9,13 @@ if [ ! -d "${U2UP_CONF_DIR}" ]; then
 	rm -rf $U2UP_CONF_DIR
 	mkdir -p $U2UP_CONF_DIR
 fi
-U2UP_KEYMAP_CONF_FILE=${U2UP_CONF_DIR}/10-keymap-conf
-U2UP_TARGET_DISK_CONF_FILE=${U2UP_CONF_DIR}/20-target_disk-conf
-U2UP_TARGET_HOSTNAME_CONF_FILE=${U2UP_CONF_DIR}/30-hostname-conf
-U2UP_TARGET_ADMIN_CONF_FILE=${U2UP_CONF_DIR}/40-admin-conf
-U2UP_NETWORK_CONF_FILE=${U2UP_CONF_DIR}/50-network-conf
-U2UP_INSTALL_REPO_CONF_FILE=${U2UP_CONF_DIR}/60-install_repo-conf
 
-if [ -n "${U2UP_CONF_DIR_PREFIX}" ]; then
-	U2UP_CONF_DIR="${U2UP_CONF_DIR_PREFIX}/etc/u2up-conf.d"
-	if [ ! -d "${U2UP_CONF_DIR}" ]; then
-		rm -rf $U2UP_CONF_DIR
-		mkdir -p $U2UP_CONF_DIR
-		cp -pf $U2UP_KEYMAP_CONF_FILE ${U2UP_CONF_DIR}/
-		cp -pf $U2UP_TARGET_DISK_CONF_FILE ${U2UP_CONF_DIR}/
-		cp -pf $U2UP_TARGET_HOSTNAME_CONF_FILE ${U2UP_CONF_DIR}/
-		cp -pf $U2UP_TARGET_ADMIN_CONF_FILE ${U2UP_CONF_DIR}/
-		cp -pf $U2UP_NETWORK_CONF_FILE ${U2UP_CONF_DIR}/
-		cp -pf $U2UP_INSTALL_REPO_CONF_FILE ${U2UP_CONF_DIR}/
-	fi
-	U2UP_KEYMAP_CONF_FILE=${U2UP_CONF_DIR}/10-keymap-conf
-	U2UP_TARGET_DISK_CONF_FILE=${U2UP_CONF_DIR}/20-target_disk-conf
-	U2UP_TARGET_HOSTNAME_CONF_FILE=${U2UP_CONF_DIR}/30-hostname-conf
-	U2UP_TARGET_ADMIN_CONF_FILE=${U2UP_CONF_DIR}/40-admin-conf
-	U2UP_NETWORK_CONF_FILE=${U2UP_CONF_DIR}/50-network-conf
-	U2UP_INSTALL_REPO_CONF_FILE=${U2UP_CONF_DIR}/60-install_repo-conf
-fi
+U2UP_KEYMAP_CONF_FILE="10-keymap-conf"
+U2UP_TARGET_DISK_CONF_FILE="20-target_disk-conf"
+U2UP_TARGET_HOSTNAME_CONF_FILE="30-hostname-conf"
+U2UP_TARGET_ADMIN_CONF_FILE="40-admin-conf"
+U2UP_NETWORK_CONF_FILE="50-network-conf"
+U2UP_INSTALL_REPO_CONF_FILE="60-install_repo-conf"
 
 U2UP_TEMP_DIR="/tmp/u2up-temp"
 if [ ! -d "${U2UP_TEMP_DIR}" ]; then
@@ -66,12 +47,17 @@ set_target_done_for() {
 store_keymap_selection() {
 	local rv=1
 	local keymap=$1
+	local conf_dir=${2:-${U2UP_CONF_DIR}}
+
+	if [ ! -d "${conf_dir}" ]; then
+		return 1
+	fi
 	if [ -n "$keymap" ]; then
 		loadkeys -p $keymap 2> /dev/null
 		rv=$?
 		if [ $rv -eq 0 ]; then
-			echo "KEYMAP_SET=$keymap" > ${U2UP_KEYMAP_CONF_FILE}
-			echo "TARGET_DONE=0" >> ${U2UP_KEYMAP_CONF_FILE}
+			echo "KEYMAP_SET=$keymap" > ${conf_dir}/${U2UP_KEYMAP_CONF_FILE}
+			echo "TARGET_DONE=0" >> ${conf_dir}/${U2UP_KEYMAP_CONF_FILE}
 		fi
 	fi
 	return $rv
@@ -81,19 +67,24 @@ enable_keymap_selection() {
 	local rv=1
 	local KEYMAP_SET=""
 	local TARGET_DONE=0
-	local root_path_prefix=${1:-"/"}
-	local new_target_done=${2:-0}
+	local new_target_done=${1:-0}
+	local root_path_prefix=${2:-"/"}
+	local conf_dir=${3:-${U2UP_CONF_DIR}}
 
-	if [ ! -f "${U2UP_KEYMAP_CONF_FILE}" ]; then
+	if [ "${root_path_prefix}" = "/" ]; then
+		root_path_prefix=""
+	fi
+
+	if [ ! -f "${root_path_prefix}${conf_dir}/${U2UP_KEYMAP_CONF_FILE}" ]; then
 		return 1
 	fi
-	source ${root_path_prefix}${U2UP_KEYMAP_CONF_FILE}
+	source ${root_path_prefix}${conf_dir}/${U2UP_KEYMAP_CONF_FILE}
 	if [ -n "$KEYMAP_SET" ] && [ $TARGET_DONE -eq 0 ]; then
 		loadkeys $KEYMAP_SET
 		rv=$?
 		if [ $rv -eq 0 ]; then
 			echo "KEYMAP=$KEYMAP_SET" > ${root_path_prefix}/etc/vconsole.conf
-			set_target_done_for ${root_path_prefix}${U2UP_KEYMAP_CONF_FILE} ${new_target_done}
+			set_target_done_for ${root_path_prefix}${conf_dir}/${U2UP_KEYMAP_CONF_FILE} ${new_target_done}
 			rv=$?
 		fi
 	fi
@@ -101,33 +92,54 @@ enable_keymap_selection() {
 }
 
 store_target_disk_selection() {
-	disk=$1
+	local rv=1
+	local disk=$1
+	local conf_dir=${2:-${U2UP_CONF_DIR}}
 
-	cat ${U2UP_TARGET_DISK_CONF_FILE} | grep -v "TARGET_DISK_SET=" > ${U2UP_TARGET_DISK_CONF_FILE}_tmp
-	if [ -n "$disk" ]; then
-		echo "TARGET_DISK_SET=$disk" >> ${U2UP_TARGET_DISK_CONF_FILE}_tmp
+	if [ ! -d "${conf_dir}" ]; then
+		return 1
 	fi
-	mv ${U2UP_TARGET_DISK_CONF_FILE}_tmp ${U2UP_TARGET_DISK_CONF_FILE}
+	cat ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE} | grep -v "TARGET_DISK_SET=" > ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
+	if [ -n "$disk" ]; then
+		echo "TARGET_DISK_SET=$disk" >> ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
+	else
+		return 1
+	fi
+	mv ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}
+	rv=$?
+	return $rv
 }
 
 store_target_part_selection() {
-	part=$1
+	local rv=1
+	local part=$1
+	local conf_dir=${2:-${U2UP_CONF_DIR}}
 
-	cat ${U2UP_TARGET_DISK_CONF_FILE} | grep -v "TARGET_PART_SET=" > ${U2UP_TARGET_DISK_CONF_FILE}_tmp
+	cat ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE} | grep -v "TARGET_PART_SET=" > ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
 	if [ -n "$part" ]; then
-		echo "TARGET_PART_SET=$part" >> ${U2UP_TARGET_DISK_CONF_FILE}_tmp
+		echo "TARGET_PART_SET=$part" >> ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
+	else
+		return 1
 	fi
-	mv ${U2UP_TARGET_DISK_CONF_FILE}_tmp ${U2UP_TARGET_DISK_CONF_FILE}
+	mv ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}
+	rv=$?
+	return $rv
 }
 
 store_target_partsize_selection() {
+	local rv=1
 	local var_target_partsz_set=""
 	local var_target_partsz_current=""
+	local conf_dir=${1}
+	shift
 	local part=$(echo $@ | sed 's/RENAMED //' | sed 's/ .*//')
 	declare -i part_size=$(echo $@ | sed 's/.*://')
 
+	if [ ! -d "${conf_dir}" ]; then
+		return 1
+	fi
 	if [ $part_size -le 0 ]; then
-		return
+		return 1
 	fi
 	case $part in
 	boot)
@@ -147,31 +159,48 @@ store_target_partsize_selection() {
 		var_target_partsz_current=target_rootB_partsz_current
 		;;
 	*)
-		exit;
+		return 1;
 	esac
 
-	cat ${U2UP_TARGET_DISK_CONF_FILE} | grep -v "${var_target_partsz_set}=" > ${U2UP_TARGET_DISK_CONF_FILE}_tmp
-	echo "${var_target_partsz_set}=$part_size" >> ${U2UP_TARGET_DISK_CONF_FILE}_tmp
-	mv ${U2UP_TARGET_DISK_CONF_FILE}_tmp ${U2UP_TARGET_DISK_CONF_FILE}
+	cat ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE} | grep -v "${var_target_partsz_set}=" > ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
+	echo "${var_target_partsz_set}=$part_size" >> ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
+	mv ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}
+	rv=$?
 	echo "${var_target_partsz_current}=${part_size}"
+	return $rv
 }
 
 store_net_internal_iface_selection() {
-	ifname=$1
+	local rv=1
+	local ifname=$1
+	local conf_dir=${2:-${U2UP_CONF_DIR}}
 
-	cat ${U2UP_NETWORK_CONF_FILE} | grep -v "NET_INTERNAL_IFNAME_SET=" > ${U2UP_NETWORK_CONF_FILE}_tmp
-	if [ -n "$ifname" ]; then
-		echo "NET_INTERNAL_IFNAME_SET=$ifname" >> ${U2UP_NETWORK_CONF_FILE}_tmp
+	if [ ! -d "${conf_dir}" ]; then
+		return 1
 	fi
-	mv ${U2UP_NETWORK_CONF_FILE}_tmp ${U2UP_NETWORK_CONF_FILE}
+	cat ${conf_dir}/${U2UP_NETWORK_CONF_FILE} | grep -v "NET_INTERNAL_IFNAME_SET=" > ${conf_dir}/${U2UP_NETWORK_CONF_FILE}_tmp
+	if [ -n "$ifname" ]; then
+		echo "NET_INTERNAL_IFNAME_SET=$ifname" >> ${conf_dir}/${U2UP_NETWORK_CONF_FILE}_tmp
+	else
+		return 1
+	fi
+	mv ${conf_dir}/${U2UP_NETWORK_CONF_FILE}_tmp ${conf_dir}/${U2UP_NETWORK_CONF_FILE}
+	rv=$?
+	return $rv
 }
 
 store_target_hostname_selection() {
+	local rv=1
 	local var_target_hostname_set=""
 	local var_target_hostname_current=""
+	local conf_dir=${1}
+	shift
 	local value="$(echo $@ | sed 's/[^:]*://' | sed 's/ *//')"
 	local name="$(echo $@ | sed 's/RENAMED //' | sed 's/:.*//')"
 
+	if [ ! -d "${conf_dir}" ]; then
+		return 1
+	fi
 	if [ -z "${value}" ] || [ "x${name}" = "x${value}" ]; then
 		return 0
 	fi
@@ -184,28 +213,35 @@ store_target_hostname_selection() {
 		return 1;
 	esac
 
-	cat ${U2UP_TARGET_HOSTNAME_CONF_FILE} | grep -v "${var_target_hostname_set}=" > ${U2UP_TARGET_HOSTNAME_CONF_FILE}_tmp
-	echo "${var_target_hostname_set}=$value" >> ${U2UP_TARGET_HOSTNAME_CONF_FILE}_tmp
-	mv ${U2UP_TARGET_HOSTNAME_CONF_FILE}_tmp ${U2UP_TARGET_HOSTNAME_CONF_FILE}
+	cat ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE} | grep -v "${var_target_hostname_set}=" > ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}_tmp
+	echo "${var_target_hostname_set}=$value" >> ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}_tmp
+	mv ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}_tmp ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}
+	rv=$?
 	echo "${var_target_hostname_current}=${value}"
+	return $rv
 }
 
 enable_target_hostname_selection() {
 	local rv=1
 	local TARGET_HOSTNAME_SET=""
 	local TARGET_DONE=0
-	local root_path_prefix=${1:-"/"}
-	local new_target_done=${2:-0}
+	local new_target_done=${1:-0}
+	local root_path_prefix=${2:-"/"}
+	local conf_dir=${3:-${U2UP_CONF_DIR}}
 
-	if [ ! -f "${U2UP_TARGET_HOSTNAME_CONF_FILE}" ]; then
+	if [ "${root_path_prefix}" = "/" ]; then
+		root_path_prefix=""
+	fi
+
+	if [ ! -f "${root_path_prefix}${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}" ]; then
 		return 1
 	fi
-	source ${root_path_prefix}${U2UP_TARGET_HOSTNAME_CONF_FILE}
+	source ${root_path_prefix}${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}
 	if [ -n "$TARGET_HOSTNAME_SET" ] && [ $TARGET_DONE -eq 0 ]; then
 		hostnamectl set-hostname $TARGET_HOSTNAME_SET
 		rv=$?
 		if [ $rv -eq 0 ]; then
-			set_target_done_for ${root_path_prefix}${U2UP_TARGET_HOSTNAME_CONF_FILE} ${new_target_done}
+			set_target_done_for ${root_path_prefix}${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE} ${new_target_done}
 			rv=$?
 		fi
 	fi
@@ -213,11 +249,17 @@ enable_target_hostname_selection() {
 }
 
 store_target_admin_selection() {
+	local rv=1
 	local var_target_admin_name_set=""
 	local var_target_admin_name_current=""
+	local conf_dir=${1}
+	shift
 	local value="$(echo $@ | sed 's/[^:]*://' | sed 's/ *//')"
 	local name="$(echo $@ | sed 's/RENAMED //' | sed 's/:.*//')"
 
+	if [ ! -d "${conf_dir}" ]; then
+		return 1
+	fi
 	if [ -z "${value}" ] || [ "x${name}" = "x${value}" ]; then
 		return 0
 	fi
@@ -230,23 +272,30 @@ store_target_admin_selection() {
 		return 1;
 	esac
 
-	cat ${U2UP_TARGET_ADMIN_CONF_FILE} | grep -v "${var_target_admin_name_set}=" > ${U2UP_TARGET_ADMIN_CONF_FILE}_tmp
-	echo "${var_target_admin_name_set}=$value" >> ${U2UP_TARGET_ADMIN_CONF_FILE}_tmp
-	mv ${U2UP_TARGET_ADMIN_CONF_FILE}_tmp ${U2UP_TARGET_ADMIN_CONF_FILE}
+	cat ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE} | grep -v "${var_target_admin_name_set}=" > ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}_tmp
+	echo "${var_target_admin_name_set}=$value" >> ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}_tmp
+	mv ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}_tmp ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}
+	rv=$?
 	echo "${var_target_admin_name_current}=${value}"
+	return $rv
 }
 
 enable_target_admin_selection() {
 	local rv=1
 	local TARGET_ADMIN_NAME_SET=""
 	local TARGET_DONE=0
-	local root_path_prefix=${1:-"/"}
-	local new_target_done=${2:-0}
+	local new_target_done=${1:-0}
+	local root_path_prefix=${2:-"/"}
+	local conf_dir=${3:-${U2UP_CONF_DIR}}
 
-	if [ ! -f "${U2UP_TARGET_ADMIN_CONF_FILE}" ]; then
+	if [ "${root_path_prefix}" = "/" ]; then
+		root_path_prefix=""
+	fi
+
+	if [ ! -f "${root_path_prefix}${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}" ]; then
 		return 1
 	fi
-	source ${root_path_prefix}${U2UP_TARGET_ADMIN_CONF_FILE}
+	source ${root_path_prefix}${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}
 	if [ -n "$TARGET_ADMIN_NAME_SET" ] && [ $TARGET_DONE -eq 0 ]; then
 		useradd -m -c "Admin User" $TARGET_ADMIN_NAME_SET
 		rv=$?
@@ -272,7 +321,7 @@ enable_target_admin_selection() {
 		usermod -p '!' root
 		rv=$?
 		if [ $rv -eq 0 ]; then
-			set_target_done_for ${root_path_prefix}${U2UP_TARGET_ADMIN_CONF_FILE} ${new_target_done}
+			set_target_done_for ${root_path_prefix}${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE} ${new_target_done}
 			rv=$?
 		fi
 	fi
@@ -280,11 +329,17 @@ enable_target_admin_selection() {
 }
 
 store_net_config_selection() {
+	local rv=1
 	local var_net_config_set=""
 	local var_net_config_current=""
+	local conf_dir=${1}
+	shift
 	local value="$(echo $@ | sed 's/[^:]*://' | sed 's/ *//')"
 	local name="$(echo $@ | sed 's/RENAMED //' | sed 's/:.*//')"
 
+	if [ ! -d "${conf_dir}" ]; then
+		return 1
+	fi
 	if [ -z "${value}" ] || [ "x${name}" = "x${value}" ]; then
 		return 0
 	fi
@@ -309,10 +364,12 @@ store_net_config_selection() {
 		return 1;
 	esac
 
-	cat ${U2UP_NETWORK_CONF_FILE} | grep -v "${var_net_config_set}=" > ${U2UP_NETWORK_CONF_FILE}_tmp
-	echo "${var_net_config_set}=$value" >> ${U2UP_NETWORK_CONF_FILE}_tmp
-	mv ${U2UP_NETWORK_CONF_FILE}_tmp ${U2UP_NETWORK_CONF_FILE}
+	cat ${conf_dir}/${U2UP_NETWORK_CONF_FILE} | grep -v "${var_net_config_set}=" > ${conf_dir}/${U2UP_NETWORK_CONF_FILE}_tmp
+	echo "${var_net_config_set}=$value" >> ${conf_dir}/${U2UP_NETWORK_CONF_FILE}_tmp
+	mv ${conf_dir}/${U2UP_NETWORK_CONF_FILE}_tmp ${conf_dir}/${U2UP_NETWORK_CONF_FILE}
+	rv=$?
 	echo "${var_net_config_current}=${value}"
+	return $rv
 }
 
 enable_net_config_selection() {
@@ -323,13 +380,18 @@ enable_net_config_selection() {
 	local NET_DNS_SET=""
 	local NET_DOMAINS_SET=""
 	local TARGET_DONE=0
-	local root_path_prefix=${1:-"/"}
-	local new_target_done=${2:-0}
+	local new_target_done=${1:-0}
+	local root_path_prefix=${2:-"/"}
+	local conf_dir=${3:-${U2UP_CONF_DIR}}
 
-	if [ ! -f "${U2UP_NETWORK_CONF_FILE}" ]; then
+	if [ "${root_path_prefix}" = "/" ]; then
+		root_path_prefix=""
+	fi
+
+	if [ ! -f "${root_path_prefix}${conf_dir}/${U2UP_NETWORK_CONF_FILE}" ]; then
 		return 1
 	fi
-	source ${root_path_prefix}${U2UP_NETWORK_CONF_FILE}
+	source ${root_path_prefix}${conf_dir}/${U2UP_NETWORK_CONF_FILE}
 	if [ $TARGET_DONE -eq 0 ]; then
 		if [ -n "${NET_INTERNAL_IFNAME_SET}" ] && [ -n "${NET_INTERNAL_ADDR_MASK_SET}" ] && [ -n "${NET_INTERNAL_GW_SET}" ]; then
 			nmcli con add type ethernet con-name internal ifname ${NET_INTERNAL_IFNAME_SET} ip4 ${NET_INTERNAL_ADDR_MASK_SET} gw4 ${NET_INTERNAL_GW_SET}
@@ -344,7 +406,7 @@ enable_net_config_selection() {
 			rv=$?
 		fi
 		if [ $rv -eq 0 ]; then
-			set_target_done_for ${root_path_prefix}${U2UP_NETWORK_CONF_FILE} ${new_target_done}
+			set_target_done_for ${root_path_prefix}${conf_dir}/${U2UP_NETWORK_CONF_FILE} ${new_target_done}
 			rv=$?
 		fi
 	fi
@@ -352,11 +414,17 @@ enable_net_config_selection() {
 }
 
 store_install_repo_selection() {
+	local rv=1
 	local var_install_repo_set=""
 	local var_install_repo_current=""
+	local conf_dir=${1}
+	shift
 	local value="$(echo $@ | sed 's/[^:]*://' | sed 's/ *//')"
 	local name="$(echo $@ | sed 's/RENAMED //' | sed 's/:.*//')"
 
+	if [ ! -d "${conf_dir}" ]; then
+		return 1
+	fi
 	if [ -z "${value}" ] || [ "x${name}" = "x${value}" ]; then
 		return 0
 	fi
@@ -369,23 +437,30 @@ store_install_repo_selection() {
 		return 1;
 	esac
 
-	cat ${U2UP_INSTALL_REPO_CONF_FILE} | grep -v "${var_install_repo_set}=" > ${U2UP_INSTALL_REPO_CONF_FILE}_tmp
-	echo "${var_install_repo_set}=$value" >> ${U2UP_INSTALL_REPO_CONF_FILE}_tmp
-	mv ${U2UP_INSTALL_REPO_CONF_FILE}_tmp ${U2UP_INSTALL_REPO_CONF_FILE}
+	cat ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE} | grep -v "${var_install_repo_set}=" > ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}_tmp
+	echo "${var_install_repo_set}=$value" >> ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}_tmp
+	mv ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}_tmp ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}
+	rv=$?
 	echo "${var_install_repo_current}=${value}"
+	return $rv
 }
 
 enable_install_repo_selection() {
 	local rv=0
 	local INSTALL_REPO_BASE_URL_SET=""
 	local TARGET_DONE=0
-	local root_path_prefix=${1:-"/"}
-	local new_target_done=${2:-0}
+	local new_target_done=${1:-0}
+	local root_path_prefix=${2:-"/"}
+	local conf_dir=${3:-${U2UP_CONF_DIR}}
 
-	if [ ! -f "${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
+	if [ "${root_path_prefix}" = "/" ]; then
+		root_path_prefix=""
+	fi
+
+	if [ ! -f "${root_path_prefix}${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
 		return 1
 	fi
-	source ${root_path_prefix}${U2UP_INSTALL_REPO_CONF_FILE}
+	source ${root_path_prefix}${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}
 	if [ $TARGET_DONE -eq 0 ]; then
 		if [ -n "${INSTALL_REPO_BASE_URL_SET}" ]; then
 			mkdir -p ${root_path_prefix}/etc/yum.repos.d
@@ -395,13 +470,38 @@ enable_install_repo_selection() {
 			echo "enabled=1" >> ${root_path_prefix}/etc/yum.repos.d/base.repo
 			echo "metadata_expire=0" >> ${root_path_prefix}/etc/yum.repos.d/base.repo
 			echo "gpgcheck=0" >> ${root_path_prefix}/etc/yum.repos.d/base.repo
-			set_target_done_for ${root_path_prefix}${U2UP_INSTALL_REPO_CONF_FILE} ${new_target_done}
+			set_target_done_for ${root_path_prefix}${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE} ${new_target_done}
 			rv=$?
 		else
 			rm -rf /etc/yum.repos.d
 			rv=$?
 		fi
 	fi
+	return $rv
+}
+
+prepare_u2up_upgrade_configuration() {
+	local rv=0
+	local conf_dir=$1
+
+	if [ -z "${conf_dir}" ]; then
+		return 1
+	fi
+	if [ ! -d "${conf_dir}" ]; then
+		return 1
+	fi
+	cp -pf ${U2UP_CONF_DIR}/${U2UP_KEYMAP_CONF_FILE} ${conf_dir}/
+	(( rv+=$? ))
+	cp -pf ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE} ${conf_dir}/
+	(( rv+=$? ))
+	cp -pf ${U2UP_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE} ${conf_dir}/
+	(( rv+=$? ))
+	cp -pf ${U2UP_CONF_DIR}/${U2UP_TARGET_ADMIN_CONF_FILE} ${conf_dir}/
+	(( rv+=$? ))
+	cp -pf ${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE} ${conf_dir}/
+	(( rv+=$? ))
+	cp -pf ${U2UP_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE} ${conf_dir}/
+	(( rv+=$? ))
 	return $rv
 }
 
@@ -412,11 +512,8 @@ populate_u2up_configurations() {
 	if [ -z "$root_path_prefix" ]; then
 		return $rv
 	fi
-	if [ ! -d "${root_path_prefix}${U2UP_CONF_DIR}" ]; then
-		rm -rf ${root_path_prefix}${U2UP_CONF_DIR}
-		rv=$?
-	fi
 	rm -rf ${root_path_prefix}${U2UP_CONF_DIR}
+	mkdir -p $(dirname ${root_path_prefix}${U2UP_CONF_DIR})
 	cp -a ${U2UP_CONF_DIR} ${root_path_prefix}${U2UP_CONF_DIR}
 	rv=$?
 	if [ $rv -eq 0 ]; then
@@ -428,9 +525,13 @@ populate_u2up_configurations() {
 	return $rv
 }
 
+#
+# Finalize configuration during the first boot.
+# (used in "u2up-pre-config.sh")
+#
 evaluate_u2up_configurations() {
 #set -x
-	local root_path_prefix=${1:-"/"}
+	local root_path_prefix="/"
 	local file=""
 	local rv=1
 	if [ ! -d "${root_path_prefix}${U2UP_CONF_DIR}" ]; then
@@ -439,26 +540,26 @@ evaluate_u2up_configurations() {
 	rv=0
 	for file in $(ls ${root_path_prefix}${U2UP_CONF_DIR}); do
 		case $file in
-		$(basename ${root_path_prefix}${U2UP_KEYMAP_CONF_FILE}))
-			enable_keymap_selection ${root_path_prefix} 1
+		${U2UP_KEYMAP_CONF_FILE})
+			enable_keymap_selection 1 ${root_path_prefix}
 			rv=$?
 			;;
-		$(basename ${root_path_prefix}${U2UP_TARGET_DISK_CONF_FILE}))
+		${U2UP_TARGET_DISK_CONF_FILE})
 			;;
-		$(basename ${root_path_prefix}${U2UP_TARGET_HOSTNAME_CONF_FILE}))
-			enable_target_hostname_selection ${root_path_prefix} 1
+		${U2UP_TARGET_HOSTNAME_CONF_FILE})
+			enable_target_hostname_selection 1 ${root_path_prefix}
 			rv=$?
 			;;
-		$(basename ${root_path_prefix}${U2UP_TARGET_ADMIN_CONF_FILE}))
-			enable_target_admin_selection ${root_path_prefix} 1
+		${U2UP_TARGET_ADMIN_CONF_FILE})
+			enable_target_admin_selection 1 ${root_path_prefix}
 			rv=$?
 			;;
-		$(basename ${root_path_prefix}${U2UP_NETWORK_CONF_FILE}))
-			enable_net_config_selection ${root_path_prefix} 1
+		${U2UP_NETWORK_CONF_FILE})
+			enable_net_config_selection 1 ${root_path_prefix}
 			rv=$?
 			;;
-		$(basename ${root_path_prefix}${U2UP_INSTALL_REPO_CONF_FILE}))
-			enable_install_repo_selection ${root_path_prefix} 1
+		${U2UP_INSTALL_REPO_CONF_FILE})
+			enable_install_repo_selection 1 ${root_path_prefix}
 			rv=$?
 			;;
 		esac
