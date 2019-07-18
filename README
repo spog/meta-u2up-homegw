@@ -54,6 +54,7 @@ First installation:
 - Check the "meta-u2up-pc-installer" project: https://github.com/spog/meta-u2up-pc-installer
 
 For testing purposes, you can start your installation repo server directly out of your build path:
+$ ./distro intel-corei7-64 bitbake package-index
 $ twistd -n web --path u2up/build.intel-corei7-64_thud/tmp/deploy/rpm --port tcp:5678
 
 ----

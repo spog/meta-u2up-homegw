@@ -28,6 +28,9 @@ do_deploy() {
 	if [ $ret -eq 0 ]; then
 		ln -sf ${PN}-${PV}-${MACHINE}.tar ${PN}.tar
 		ln -sf ${PN}-${PV}-${MACHINE}.tar.sha256 ${PN}.tar.sha256
+		cd ${BUILDIR}/tmp/deploy/rpm
+		ln -sf ../images/${MACHINE}/u2up-homegw-bundle.tar
+		ln -sf ../images/${MACHINE}/u2up-homegw-bundle.tar.sha256
 	fi
 }
 

@@ -68,6 +68,9 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
+echo "press enter to continue..."
+read
+
 DIALOG_CANCEL=1
 DIALOG_ESC=255
 HEIGHT=0
@@ -720,20 +723,20 @@ proceed_target_repartition() {
 		echo "Re-partitioning disk:"
 		bash ${U2UP_TARGET_DISK_SFDISK_BASH}
 		if [ $? -ne 0 ]; then
-			echo "press any key to continue..."
+			echo "press enter to continue..."
 			read
 			display_result "Re-partition" "Failed to re-partition disk!"
 			return 1
 		fi
 		sfdisk -V /dev/${TARGET_DISK_SET}
 		if [ $? -ne 0 ]; then
-			echo "press any key to continue..."
+			echo "press enter to continue..."
 			read
 			display_result "Re-partition" "Failed to re-partition disk!"
 			return 1
 		fi
 	fi
-	echo "press any key to continue..."
+	echo "press enter to continue..."
 	read
 	display_result "Re-partition" "Re-partition successfully finished!"
 }
@@ -1299,7 +1302,7 @@ proceed_target_install() {
 	check_create_filesystems
 	rv=$?
 	if [ $rv -ne 0 ]; then
-		echo "press any key to continue..."
+		echo "press enter to continue..."
 		read
 		display_result "Installation" "Failed to check / create filesystems!"
 		return $rv
@@ -1308,13 +1311,13 @@ proceed_target_install() {
 	populate_root_filesystem
 	rv=$?
 	if [ $rv -ne 0 ]; then
-		echo "press any key to continue..."
+		echo "press enter to continue..."
 		read
 		display_result "Installation" "Failed to populate root filesystem!"
 		return $rv
 	fi
 
-	echo "press any key to continue..."
+	echo "press enter to continue..."
 	read
 	display_yesno "Installation" \
 "Installation successfully finished!\n\n\

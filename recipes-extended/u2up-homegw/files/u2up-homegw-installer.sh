@@ -23,25 +23,8 @@ fi
 
 U2UP_IMAGES_DIR="/var/lib/u2up-images"
 U2UP_IMAGES_BUNDLE_NAME="u2up-homegw-bundle"
-U2UP_IMAGES_BUNDLE_ARCHIVE=${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_NAME}.tar
-if [ ! -f "${U2UP_IMAGES_BUNDLE_ARCHIVE}" ]; then
-	echo "Program terminated (missing: ${U2UP_IMAGES_BUNDLE_ARCHIVE})!"
-	exit 1
-fi
-U2UP_IMAGES_BUNDLE_ARCHIVE_SUM=${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_NAME}.tar.sha256
-if [ ! -f "${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}" ]; then
-	echo "Program terminated (missing: ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM})!"
-	exit 1
-fi
-
-cd ${U2UP_IMAGES_DIR}
-ln -sf $(basename ${U2UP_IMAGES_BUNDLE_ARCHIVE}) $(cat ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM} | sed -e 's%^.* %%g')
-sha256sum -c ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
-if [ $? -ne 0 ]; then
-	echo "Program terminated (checksum mismatch: ${U2UP_IMAGES_BUNDLE_ARCHIVE})!"
-	exit 1
-fi
-cd -
+U2UP_IMAGES_BUNDLE_ARCHIVE=${U2UP_IMAGES_BUNDLE_NAME}.tar
+U2UP_IMAGES_BUNDLE_ARCHIVE_SUM=${U2UP_IMAGES_BUNDLE_NAME}.tar.sha256
 
 MACHINE="intel-corei7-64"
 
@@ -50,32 +33,6 @@ U2UP_FS_IMAGE_ARCHIVE=u2up-homegw-image-full-cmdline
 U2UP_KERNEL_IMAGE=bzImage
 U2UP_INITRD_IMAGE=microcode
 U2UP_EFI_FALLBACK_IMAGE=bootx64.efi
-
-tar tvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz
-if [ $? -ne 0 ]; then
-	echo "Program terminated (bundle not containing: ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz)!"
-	exit 1
-fi
-#tar tvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_KERNEL_MODULES_ARCHIVE}-${MACHINE}.tgz
-#if [ $? -ne 0 ]; then
-#	echo "Program terminated (bundle not containing: ${U2UP_KERNEL_MODULES_ARCHIVE}-${MACHINE}.tgz)!"
-#	exit 1
-#fi
-tar tvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin
-if [ $? -ne 0 ]; then
-	echo "Program terminated (bundle not containing: ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin)!"
-	exit 1
-fi
-tar tvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_INITRD_IMAGE}.cpio
-if [ $? -ne 0 ]; then
-	echo "Program terminated (bundle not containing: ${U2UP_INITRD_IMAGE}.cpio)!"
-	exit 1
-fi
-tar tvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} systemd-${U2UP_EFI_FALLBACK_IMAGE}
-if [ $? -ne 0 ]; then
-	echo "Program terminated (bundle not containing: systemd-${U2UP_EFI_FALLBACK_IMAGE})!"
-	exit 1
-fi
 
 DIALOG_CANCEL=1
 DIALOG_ESC=255
@@ -315,6 +272,10 @@ check_install_repo_config_set() {
 		source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}
 	else
 		INSTALL_REPO_BASE_URL_SET=""
+	fi
+	if [ -z "$INSTALL_REPO_BASE_URL_SET" ]; then
+		display_result "Installation REPO BASE URL check" "Please set your REPO BASE URL!"
+		return 1
 	fi
 }
 
@@ -730,20 +691,20 @@ proceed_target_repartition() {
 		echo "Re-partitioning disk:"
 		bash ${U2UP_TARGET_DISK_SFDISK_BASH}
 		if [ $? -ne 0 ]; then
-			echo "press any key to continue..."
+			echo "press enter to continue..."
 			read
 			display_result "Re-partition" "Failed to re-partition disk!"
 			return 1
 		fi
 		sfdisk -V /dev/${TARGET_DISK_SET}
 		if [ $? -ne 0 ]; then
-			echo "press any key to continue..."
+			echo "press enter to continue..."
 			read
 			display_result "Re-partition" "Failed to re-partition disk!"
 			return 1
 		fi
 	fi
-	echo "press any key to continue..."
+	echo "press enter to continue..."
 	read
 	display_result "Re-partition" "Re-partition successfully finished!"
 }
@@ -1183,7 +1144,7 @@ populate_root_filesystem() {
 	fi
 	echo "Extracting root filesystem archive:"
 	set -x
-	tar xvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz | tar xz -C /mnt
+	tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz | tar xz -C /mnt
 	rv=$?
 	set +x
 	if [ $rv -ne 0 ]; then
@@ -1191,7 +1152,7 @@ populate_root_filesystem() {
 	fi
 #	echo "Extracting kernel modules archive:"
 #	set -x
-#	tar xvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_KERNEL_MODULES_IMAGE_ARCHIVE}-${MACHINE}.tgz | tar xz -C /mnt
+#	tar xvf ${U2UP_IMAGES_DIR}${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_KERNEL_MODULES_IMAGE_ARCHIVE}-${MACHINE}.tgz | tar xz -C /mnt
 #	rv=$?
 #	set +x
 #	if [ $rv -ne 0 ]; then
@@ -1258,16 +1219,16 @@ populate_root_filesystem() {
 	mkdir -p /mnt/EFI/BOOT
 	mkdir -p /mnt/loader/entries
 	set -x
-	tar xvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /mnt ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin
+	tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /mnt ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin
 	(( rv+=$? ))
 	mv /mnt/${U2UP_KERNEL_IMAGE}-${MACHINE}.bin /mnt/bzImage${root_part_suffix}
 	(( rv+=$? ))
-	tar xvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /mnt ${U2UP_INITRD_IMAGE}.cpio
+	tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /mnt ${U2UP_INITRD_IMAGE}.cpio
 	(( rv+=$? ))
 	mv /mnt/${U2UP_INITRD_IMAGE}.cpio /mnt/microcode${root_part_suffix}.cpio
 	(( rv+=$? ))
 	if [ ! -f "/mnt/EFI/BOOT/bootx64.efi" ]; then
-		tar xvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /mnt/EFI/BOOT systemd-${U2UP_EFI_FALLBACK_IMAGE}
+		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /mnt/EFI/BOOT systemd-${U2UP_EFI_FALLBACK_IMAGE}
 		(( rv+=$? ))
 		mv /mnt/EFI/BOOT/systemd-${U2UP_EFI_FALLBACK_IMAGE} /mnt/EFI/BOOT/${U2UP_EFI_FALLBACK_IMAGE}
 		(( rv+=$? ))
@@ -1303,13 +1264,135 @@ populate_root_filesystem() {
 	return $rv
 }
 
+get_prepare_images_bundle() {
+	local rv=1
+	local INSTALL_REPO_BASE_URL=""
+
+	source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}
+	INSTALL_REPO_BASE_URL=$INSTALL_REPO_BASE_URL_SET
+	mkdir -p ${U2UP_IMAGES_DIR}
+	rv=$?
+	if [ $rv -ne 0 ]; then
+		return $rv
+	fi
+	cd ${U2UP_IMAGES_DIR}
+	echo "Get new image bundle checksum!"
+	wget ${INSTALL_REPO_BASE_URL}/${U2UP_IMAGES_BUNDLE_NAME}.tar.sha256
+	rv=$?
+	if [ $rv -ne 0 ]; then
+		echo "Could not get new image bundle checksum!"
+		if [ ! -f "${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_NAME}.tar.sha256" ]; then
+			echo "Existing image bundle checksum not available (can not proceed)!"
+			cd - 2> /dev/null
+			return $rv
+		fi
+		rv=0
+		echo "Using existing image bundle checksum!"
+	fi
+	ln -sf ${U2UP_IMAGES_BUNDLE_ARCHIVE} $(cat ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM} | sed -e 's%^.* %%g')
+	if [ -f "${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_NAME}.tar" ]; then
+		echo "Using existing image bundle!"
+		sha256sum -c ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
+		if [ $? -ne 0 ]; then
+			echo "Image bundle checksum mismatch: ${U2UP_IMAGES_BUNDLE_ARCHIVE}!"
+			echo "Get new image bundle!"
+			wget ${INSTALL_REPO_BASE_URL}/${U2UP_IMAGES_BUNDLE_NAME}.tar
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				echo "Could not get new image bundle (can not proceed)!"
+				cd - 2> /dev/null
+				return $rv
+			fi
+			echo "Using new image bundle!"
+			sha256sum -c ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
+			if [ $? -ne 0 ]; then
+				echo "Image bundle checksum mismatch: ${U2UP_IMAGES_BUNDLE_ARCHIVE} (can not proceed)!"
+				cd - 2> /dev/null
+				return $rv
+			fi
+		fi
+	else
+		echo "Get new image bundle!"
+		wget ${INSTALL_REPO_BASE_URL}/${U2UP_IMAGES_BUNDLE_NAME}.tar
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			echo "Could not get new image bundle (can not proceed)!"
+			cd - 2> /dev/null
+			return $rv
+		fi
+		echo "Using new image bundle!"
+		sha256sum -c ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
+		if [ $? -ne 0 ]; then
+			echo "Image bundle checksum mismatch: ${U2UP_IMAGES_BUNDLE_ARCHIVE} (can not proceed)!"
+			cd - 2> /dev/null
+			return $rv
+		fi
+	fi
+	cd - 2> /dev/null
+	return $rv
+}
+
+check_image_bundle_content() {
+	local rv=1
+
+	tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz
+	rv=$?
+	if [ $rv -ne 0 ]; then
+		echo "Image bundle not containing: ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz!"
+		return $rv
+	fi
+	tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin
+	rv=$?
+	if [ $rv -ne 0 ]; then
+		echo "Image bundle not containing: ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin!"
+		return $rv
+	fi
+	tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_INITRD_IMAGE}.cpio
+	rv=$?
+	if [ $rv -ne 0 ]; then
+		echo "Image bundle not containing: ${U2UP_INITRD_IMAGE}.cpio!"
+		return $rv
+	fi
+	tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} systemd-${U2UP_EFI_FALLBACK_IMAGE}
+	rv=$?
+	if [ $rv -ne 0 ]; then
+		echo "Image bundle not containing: systemd-${U2UP_EFI_FALLBACK_IMAGE}!"
+		return $rv
+	fi
+	return $rv
+}
+
 proceed_target_install() {
 	local rv=1
+
+	check_install_repo_config_set
+	rv=$?
+	if [ $rv -ne 0 ]; then
+		return $rv
+	fi
+
+	get_prepare_images_bundle
+	rv=$?
+	if [ $rv -ne 0 ]; then
+		echo "press enter to continue..."
+		read
+		display_result "Installation" "Failed to get / prepare images bundle!"
+		return $rv
+	fi
+
+	check_image_bundle_content
+	rv=$?
+	if [ $rv -ne 0 ]; then
+		echo "press enter to continue..."
+		read
+		display_result "Installation" "Check images bundle content failed!"
+		return $rv
+	fi
 
 	check_create_filesystems
 	rv=$?
 	if [ $rv -ne 0 ]; then
-		echo "press any key to continue..."
+		echo "press enter to continue..."
 		read
 		display_result "Installation" "Failed to check / create filesystems!"
 		return $rv
@@ -1318,13 +1401,13 @@ proceed_target_install() {
 	populate_root_filesystem
 	rv=$?
 	if [ $rv -ne 0 ]; then
-		echo "press any key to continue..."
+		echo "press enter to continue..."
 		read
 		display_result "Installation" "Failed to populate root filesystem!"
 		return $rv
 	fi
 
-	echo "press any key to continue..."
+	echo "press enter to continue..."
 	read
 	display_yesno "Installation" \
 "Installation successfully finished!\n\n\
