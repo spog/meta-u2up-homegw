@@ -28,6 +28,22 @@ U2UP_TARGET_DISK_SFDISK_DUMP=${U2UP_TEMP_DIR}/u2up_target_disk-sfdisk_dump
 PART_TYPE_EFI="C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
 PART_TYPE_LINUX="0FC63DAF-8483-4772-8E79-3D69D8477DE4"
 
+get_root_label_suffix() {
+	local target_disk=$1
+	local target_part=$2
+	if [ -n "${target_part}" ]; then
+		case ${target_part} in
+			${target_disk}3)
+				echo "A"
+				;;
+			${target_disk}4)
+				echo "B"
+				;;
+		esac
+	fi
+	return
+}
+
 set_target_done_for() {
 	local file=${1}
 	local new_target_done=${2:-0}

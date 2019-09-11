@@ -504,12 +504,9 @@ check_current_target_disk_setup() {
 	else
 		TARGET_BOOT_PARTSZ_SET=""
 	fi
-	if [ -n "${TARGET_PART_SET}" ]; then
-		if [ "${TARGET_PART_SET}" = "${TARGET_DISK_SET}3" ]; then
-			root_part_label="rootA"
-		elif [ "${TARGET_PART_SET}" = "${TARGET_DISK_SET}4" ]; then
-			root_part_label="rootB"
-		fi
+	root_part_label="$(get_root_label_suffix ${TARGET_DISK_SET} ${TARGET_PART_SET})"
+	if [ -n "${root_part_label}" ]; then
+		root_part_label="root${root_part_label}"
 	fi
 	if \
 		[ -n "$TARGET_BOOT_PARTSZ_SET" ] && \
@@ -1369,13 +1366,9 @@ main_loop () {
 		if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
 			source ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 		fi
-		root_part_label=""
-		if [ -n "${TARGET_PART_SET}" ]; then
-			if [ "${TARGET_PART_SET}" = "${TARGET_DISK_SET}3" ]; then
-				root_part_label="rootA"
-			elif [ "${TARGET_PART_SET}" = "${TARGET_DISK_SET}4" ]; then
-				root_part_label="rootB"
-			fi
+		root_part_label="$(get_root_label_suffix ${TARGET_DISK_SET} ${TARGET_PART_SET})"
+		if [ -n "${root_part_label}" ]; then
+			root_part_label="root${root_part_label}"
 		fi
 		if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE}" ]; then
 			source ${U2UP_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE}
