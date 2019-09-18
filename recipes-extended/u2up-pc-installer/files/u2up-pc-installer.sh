@@ -504,10 +504,7 @@ check_current_target_disk_setup() {
 	else
 		TARGET_BOOT_PARTSZ_SET=""
 	fi
-	root_part_label="$(get_root_label_suffix ${TARGET_DISK_SET} ${TARGET_PART_SET})"
-	if [ -n "${root_part_label}" ]; then
-		root_part_label="root${root_part_label}"
-	fi
+	root_part_label="$(get_root_label ${TARGET_DISK_SET} ${TARGET_PART_SET})"
 	if \
 		[ -n "$TARGET_BOOT_PARTSZ_SET" ] && \
 		[ -n "$TARGET_ROOTA_PARTSZ_SET" ] && \
@@ -1266,15 +1263,15 @@ populate_root_filesystem() {
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
-	echo "Create new boot${root_part_suffix} menu:"
+	echo "Create new boot  \"${root_part_label}\" menu:"
 	set -x
-	echo "title boot${root_part_suffix}" > /mnt/loader/entries/boot${root_part_suffix}.conf
+	echo "title ${root_part_label}" > /mnt/loader/entries/${root_part_label}.conf
 	(( rv+=$? ))
-	echo "linux /bzImage${root_part_suffix}" >> /mnt/loader/entries/boot${root_part_suffix}.conf
+	echo "linux /bzImage${root_part_suffix}" >> /mnt/loader/entries/${root_part_label}.conf
 	(( rv+=$? ))
-	echo "options label=Boot${root_part_suffix} root=PARTUUID=${root_part_uuid} rootwait rootfstype=ext4 console=tty0 ttyprintk.tioccons=1" >> /mnt/loader/entries/boot${root_part_suffix}.conf
+	echo "options label=${root_part_label} root=PARTUUID=${root_part_uuid} rootwait rootfstype=ext4 console=tty0 ttyprintk.tioccons=1" >> /mnt/loader/entries/${root_part_label}.conf
 	(( rv+=$? ))
-	echo "initrd /microcode${root_part_suffix}.cpio" >> /mnt/loader/entries/boot${root_part_suffix}.conf
+	echo "initrd /microcode${root_part_suffix}.cpio" >> /mnt/loader/entries/${root_part_label}.conf
 	(( rv+=$? ))
 	set +x
 	if [ $rv -ne 0 ]; then
@@ -1282,7 +1279,7 @@ populate_root_filesystem() {
 	fi
 	echo "Configure default boot:"
 	set -x
-	echo "default boot${root_part_suffix}" > /mnt/loader/loader.conf
+	echo "default ${root_part_label}" > /mnt/loader/loader.conf
 	(( rv+=$? ))
 	echo "timeout 5" >> /mnt/loader/loader.conf
 	(( rv+=$? ))
@@ -1324,6 +1321,7 @@ Do you wish to reboot into new target installation now?" 10
 	if [ $rv -eq 0 ]; then
 		#Yes
 		reboot
+		exit 0
 	fi
 	return $rv
 }
@@ -1341,7 +1339,7 @@ execute_target_install() {
 main_loop () {
 	local rv=1
 	local current_tag='1'
-	local root_part_label
+	local root_part_label=""
 	local net_internal_mac=""
 	local KEYMAP_SET=""
 	local TARGET_DISK_SET=""
@@ -1366,10 +1364,7 @@ main_loop () {
 		if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
 			source ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 		fi
-		root_part_label="$(get_root_label_suffix ${TARGET_DISK_SET} ${TARGET_PART_SET})"
-		if [ -n "${root_part_label}" ]; then
-			root_part_label="root${root_part_label}"
-		fi
+		root_part_label="$(get_root_label ${TARGET_DISK_SET} ${TARGET_PART_SET})"
 		if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE}" ]; then
 			source ${U2UP_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE}
 		fi

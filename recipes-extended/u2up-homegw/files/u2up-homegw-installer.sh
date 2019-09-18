@@ -12,6 +12,24 @@ if [ ! -f "${U2UP_INSTALL_BASH_LIB}" ]; then
 fi
 source ${U2UP_INSTALL_BASH_LIB}
 
+current_boot_label="$(get_current_boot_label)"
+if [ -z "${current_boot_label}" ]; then
+	echo "Program terminated (unrecognised current boot setup)!"
+	exit 1
+fi
+U2UP_CURRENT_TARGET_DISK=$(get_current_target_disk)
+U2UP_CURRENT_TARGET_PART=$(get_current_target_part)
+current_root_part_label="$(get_root_label ${U2UP_CURRENT_TARGET_DISK} ${U2UP_CURRENT_TARGET_PART})"
+if [ -z "${current_root_part_label}" ]; then
+	echo "Program terminated (unrecognised current root disk and partition: disk=\"${U2UP_CURRENT_TARGET_DISK}\", part=\"${U2UP_CURRENT_TARGET_PART}\")!"
+	exit 1
+fi
+current_root_part_label_suffix="$(get_root_label_suffix_from_label ${current_root_part_label})"
+if [ -z "${current_root_part_label_suffix}" ]; then
+	echo "Program terminated (unrecognised current root partition label: disk=\"${U2UP_CURRENT_TARGET_DISK}\", part=\"${U2UP_CURRENT_TARGET_PART}\")!"
+	exit 1
+fi
+
 U2UP_UPGRADE_CONF_DIR="/var/lib/u2up-conf.d"
 rm -rf $U2UP_UPGRADE_CONF_DIR
 mkdir -p $U2UP_UPGRADE_CONF_DIR
@@ -38,7 +56,7 @@ DIALOG_CANCEL=1
 DIALOG_ESC=255
 HEIGHT=0
 WIDTH=0
-U2UP_BACKTITLE="U2UP installer setup"
+U2UP_BACKTITLE="U2UP-HOMEGW installer (${current_root_part_label}):"
 
 display_result() {
 	dialog \
@@ -110,7 +128,7 @@ display_keymap_submenu() {
 }
 
 display_target_disk_submenu() {
-	local target_disk_current=$1
+	local target_disk_to_display=$1
 	local radiolist=""
 	local tag="start_tag"
 
@@ -120,7 +138,7 @@ display_target_disk_submenu() {
 		if [ -n "$1" ] && [ "$1" != "NAME" ] && [[ "$1" != "$tag"* ]]; then
 			tag=$1
 			shift
-			if [ -n "$target_disk_current" ] && [ "$tag" == "$target_disk_current" ]; then
+			if [ -n "$target_disk_to_display" ] && [ "$tag" == "$target_disk_to_display" ]; then
 				echo -n "${tag}|"$@"|on|"
 			else
 				echo -n "${tag}|"$@"|off|"
@@ -196,17 +214,17 @@ display_net_internal_ifname_submenu() {
 }
 
 display_target_part_submenu() {
-	local target_disk_current=$1
-	local target_part_current=$2
+	local target_disk_to_set=$1
+	local target_part_to_set=$2
 	local radiolist=""
 	local tag="start_tag"
 
-	radiolist=$(lsblk -ir -o NAME,SIZE,PARTUUID | grep -E "(${target_disk_current}3|${target_disk_current}4)" | while read line; do
+	radiolist=$(lsblk -ir -o NAME,SIZE,PARTUUID | grep -v "${U2UP_CURRENT_TARGET_PART}" | grep -E "(${target_disk_to_set}3|${target_disk_to_set}4)" | while read line; do
 		set -- $line
 		if [ -n "$1" ] && [ "$1" != "NAME" ] && [[ "$1" != "$tag"* ]]; then
 			tag=$1
 			shift
-			if [ -n "$target_part_current" ] && [ "$tag" == "$target_part_current" ]; then
+			if [ -n "$target_part_to_set" ] && [ "$tag" == "$target_part_to_set" ]; then
 				echo -n "${tag}|"$@"|on|"
 			else
 				echo -n "${tag}|"$@"|off|"
@@ -215,8 +233,7 @@ display_target_part_submenu() {
 	done)
 
 	if [ -z "$radiolist" ]; then
-		store_target_part_selection ${target_disk_current}3 ${U2UP_UPGRADE_CONF_DIR}
-		return 0
+		return 1
 	fi
 
 	exec 3>&1
@@ -241,6 +258,51 @@ display_target_part_submenu() {
 	esac
 
 	store_target_part_selection $selection ${U2UP_UPGRADE_CONF_DIR}
+}
+
+display_target_boot_submenu() {
+	local radiolist=""
+	local tag="start_tag"
+
+	radiolist=$(ls /boot/loader/entries/ | sed 's/\.conf//g' | while read line; do
+		set -- $line
+		if [ -n "$1" ] && [ "$1" != "NAME" ] && [[ "$1" != "$tag"* ]]; then
+			tag=$1
+			shift
+			if [ -n "$current_boot_label" ] && [ "$tag" == "$current_boot_label" ]; then
+				echo -n "${tag}|"$@"|on|"
+			else
+				echo -n "${tag}|"$@"|off|"
+			fi
+		fi
+	done)
+
+	if [ -z "$radiolist" ]; then
+		return 1
+	fi
+
+	exec 3>&1
+	selection=$(IFS='|'; \
+	dialog \
+		--backtitle "${U2UP_BACKTITLE}" \
+		--title "Default boot selection" \
+		--clear \
+		--cancel-label "Cancel" \
+		--radiolist "Please select:" $HEIGHT $WIDTH 0 \
+		${radiolist} \
+	2>&1 1>&3)
+	exit_status=$?
+	exec 3>&-
+
+	case $exit_status in
+	$DIALOG_CANCEL|$DIALOG_ESC)
+		clear
+		echo "Return from submenu."
+		return 0
+		;;
+	esac
+
+	set_default_boot $selection
 }
 
 check_target_disk_set() {
@@ -472,12 +534,10 @@ check_current_target_disk_setup() {
 	else
 		TARGET_BOOT_PARTSZ_SET=""
 	fi
-	if [ -n "${TARGET_PART_SET}" ]; then
-		if [ "${TARGET_PART_SET}" = "${TARGET_DISK_SET}3" ]; then
-			root_part_label="rootA"
-		elif [ "${TARGET_PART_SET}" = "${TARGET_DISK_SET}4" ]; then
-			root_part_label="rootB"
-		fi
+	root_part_label="$(get_root_label ${TARGET_DISK_SET} ${TARGET_PART_SET})"
+	if [ -z "${root_part_label}" ]; then
+		display_result "${action_name}" "${action_name} interrupted (unknown root part label)!"
+		return 1
 	fi
 	if \
 		[ -n "$TARGET_BOOT_PARTSZ_SET" ] && \
@@ -1160,7 +1220,7 @@ populate_root_filesystem() {
 #	fi
 	echo "Populate \"u2up-config.d\" of the installed system:"
 	set -x
-	populate_u2up_configurations "/mnt"
+	populate_u2up_configurations "/mnt" "${U2UP_UPGRADE_CONF_DIR}"
 	(( rv+=$? ))
 	set +x
 	if [ $rv -ne 0 ]; then
@@ -1206,56 +1266,46 @@ populate_root_filesystem() {
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
-	echo "Mounting boot filesystem:"
-	umount -f /mnt
-	set -x
-	mount /dev/${TARGET_DISK_SET}1 /mnt
-	rv=$?
-	set +x
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
+#	echo "Mounting boot filesystem:"
+#	umount -f /mnt
+#	set -x
+#	mount /dev/${TARGET_DISK_SET}1 /mnt
+#	rv=$?
+#	set +x
+#	if [ $rv -ne 0 ]; then
+#		return $rv
+#	fi
 	echo "Prepare boot images:"
-	mkdir -p /mnt/EFI/BOOT
-	mkdir -p /mnt/loader/entries
+	mkdir -p /boot/EFI/BOOT
+	mkdir -p /boot/loader/entries
 	set -x
-	tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /mnt ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin
+	tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin
 	(( rv+=$? ))
-	mv /mnt/${U2UP_KERNEL_IMAGE}-${MACHINE}.bin /mnt/bzImage${root_part_suffix}
+	mv /boot/${U2UP_KERNEL_IMAGE}-${MACHINE}.bin /boot/bzImage${root_part_suffix}
 	(( rv+=$? ))
-	tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /mnt ${U2UP_INITRD_IMAGE}.cpio
+	tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot ${U2UP_INITRD_IMAGE}.cpio
 	(( rv+=$? ))
-	mv /mnt/${U2UP_INITRD_IMAGE}.cpio /mnt/microcode${root_part_suffix}.cpio
+	mv /boot/${U2UP_INITRD_IMAGE}.cpio /boot/microcode${root_part_suffix}.cpio
 	(( rv+=$? ))
-	if [ ! -f "/mnt/EFI/BOOT/bootx64.efi" ]; then
-		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /mnt/EFI/BOOT systemd-${U2UP_EFI_FALLBACK_IMAGE}
+	if [ ! -f "/boot/EFI/BOOT/bootx64.efi" ]; then
+		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot/EFI/BOOT systemd-${U2UP_EFI_FALLBACK_IMAGE}
 		(( rv+=$? ))
-		mv /mnt/EFI/BOOT/systemd-${U2UP_EFI_FALLBACK_IMAGE} /mnt/EFI/BOOT/${U2UP_EFI_FALLBACK_IMAGE}
+		mv /boot/EFI/BOOT/systemd-${U2UP_EFI_FALLBACK_IMAGE} /boot/EFI/BOOT/${U2UP_EFI_FALLBACK_IMAGE}
 		(( rv+=$? ))
 	fi
 	set +x
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
-	echo "Create new boot${root_part_suffix} menu:"
+	echo "Create new boot  \"${root_part_label}\" menu:"
 	set -x
-	echo "title boot${root_part_suffix}" > /mnt/loader/entries/boot${root_part_suffix}.conf
+	echo "title ${root_part_label}" > /boot/loader/entries/${root_part_label}.conf
 	(( rv+=$? ))
-	echo "linux /bzImage${root_part_suffix}" >> /mnt/loader/entries/boot${root_part_suffix}.conf
+	echo "linux /bzImage${root_part_suffix}" >> /boot/loader/entries/${root_part_label}.conf
 	(( rv+=$? ))
-	echo "options label=Boot${root_part_suffix} root=PARTUUID=${root_part_uuid} rootwait rootfstype=ext4 console=tty0 ttyprintk.tioccons=1" >> /mnt/loader/entries/boot${root_part_suffix}.conf
+	echo "options label=${root_part_label} root=PARTUUID=${root_part_uuid} rootwait rootfstype=ext4 console=tty0 ttyprintk.tioccons=1" >> /boot/loader/entries/${root_part_label}.conf
 	(( rv+=$? ))
-	echo "initrd /microcode${root_part_suffix}.cpio" >> /mnt/loader/entries/boot${root_part_suffix}.conf
-	(( rv+=$? ))
-	set +x
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	echo "Configure default boot:"
-	set -x
-	echo "default boot${root_part_suffix}" > /mnt/loader/loader.conf
-	(( rv+=$? ))
-	echo "timeout 5" >> /mnt/loader/loader.conf
+	echo "initrd /microcode${root_part_suffix}.cpio" >> /boot/loader/entries/${root_part_label}.conf
 	(( rv+=$? ))
 	set +x
 	if [ $rv -ne 0 ]; then
@@ -1409,15 +1459,7 @@ proceed_target_install() {
 
 	echo "press enter to continue..."
 	read
-	display_yesno "Installation" \
-"Installation successfully finished!\n\n\
-To reboot into new target installation, remove the installation media during the system reset!\n\n\
-Do you wish to reboot into new target installation now?" 10
-	rv=$?
-	if [ $rv -eq 0 ]; then
-		#Yes
-		reboot
-	fi
+	display_result "Installation" "Installation successfully finished!"
 	return $rv
 }
 
@@ -1459,13 +1501,10 @@ main_loop () {
 		if [ -f "${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
 			source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 		fi
-		root_part_label=""
-		if [ -n "${TARGET_PART_SET}" ]; then
-			if [ "${TARGET_PART_SET}" = "${TARGET_DISK_SET}3" ]; then
-				root_part_label="rootA"
-			elif [ "${TARGET_PART_SET}" = "${TARGET_DISK_SET}4" ]; then
-				root_part_label="rootB"
-			fi
+		root_part_label="$(get_root_label ${TARGET_DISK_SET} ${TARGET_PART_SET})"
+		if [ -z "${root_part_label}" ]; then
+			display_result "ERROR" "Program interrupted (unknown root part label)!"
+			exit 1
 		fi
 		if [ -f "${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE}" ]; then
 			source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE}
@@ -1487,11 +1526,11 @@ main_loop () {
 		exec 3>&1
 		selection=$(dialog \
 			--backtitle "${U2UP_BACKTITLE}" \
-			--title "Menu" \
+			--title "Menu (${current_root_part_label})" \
 			--clear \
 			--cancel-label "Exit" \
 			--default-item $current_tag \
-			--menu "Please select:" $HEIGHT $WIDTH 10 \
+			--menu "Please select:" $HEIGHT $WIDTH 12 \
 			"1" "Keyboard mapping [${KEYMAP_SET}]" \
 			"2" "Target disk [${TARGET_DISK_SET}]" \
 			"3" "Disk partitions \
@@ -1506,6 +1545,8 @@ main_loop () {
 			"8" "Installation packages repo [${INSTALL_REPO_BASE_URL_SET}]" \
 			"9" "Installation partition [${TARGET_PART_SET} - ${root_part_label}]" \
 			"10" "Install" \
+			"11" "Default boot [${current_boot_label}]" \
+			"12" "Reboot" \
 		2>&1 1>&3)
 		exit_status=$?
 		exec 3>&-
@@ -1618,6 +1659,19 @@ main_loop () {
 			;;
 		10)
 			execute_target_install
+			;;
+		11)
+			display_target_boot_submenu
+			current_boot_label="$(get_current_boot_label)"
+			;;
+		12)
+			display_yesno "Reboot" \
+				"You are about to reboot the system!\n\nDo you want to continue?" 7
+			if [ $? -eq 0 ]; then
+				#Yes
+				reboot
+				exit 0
+			fi
 			;;
 		esac
 	done
