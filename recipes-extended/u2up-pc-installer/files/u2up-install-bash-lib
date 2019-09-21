@@ -10,6 +10,7 @@ if [ ! -d "${U2UP_CONF_DIR}" ]; then
 	mkdir -p $U2UP_CONF_DIR
 fi
 
+U2UP_IDS_CONF_FILE="00-u2up_ids-conf"
 U2UP_KEYMAP_CONF_FILE="10-keymap-conf"
 U2UP_TARGET_DISK_CONF_FILE="20-target_disk-conf"
 U2UP_TARGET_HOSTNAME_CONF_FILE="30-hostname-conf"
@@ -28,19 +29,29 @@ U2UP_TARGET_DISK_SFDISK_DUMP=${U2UP_TEMP_DIR}/u2up_target_disk-sfdisk_dump
 PART_TYPE_EFI="C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
 PART_TYPE_LINUX="0FC63DAF-8483-4772-8E79-3D69D8477DE4"
 
-get_current_boot_label() {
+get_boot_label() {
+	local boot_label=$1
+	local boot_label_conf=
+	if [ -z "${boot_label}" ]; then
+		return
+	fi
+	boot_label_conf="/boot/loader/entries/${boot_label}.conf"
+	if [ ! -f "${boot_label_conf}" ]; then
+		return
+	fi
+	cat ${boot_label_conf} | grep title | sed 's/.*title[ ]*//g'
+}
+
+get_default_boot_label() {
 	local default_boot_conf=""
 	if [ ! -f "/boot/loader/loader.conf" ]; then
 		return
 	fi
-	default_boot_conf="$(cat /boot/loader/loader.conf | grep "default" | sed 's/default //g').conf"
-	if [ -z "${default_boot_conf}" ]; then
+	default_boot_conf="/boot/loader/entries/$(cat /boot/loader/loader.conf | grep "default" | sed 's/default //g').conf"
+	if [ ! -f "${default_boot_conf}" ]; then
 		return
 	fi
-	if [ ! -f "/boot/loader/entries/${default_boot_conf}" ]; then
-		return
-	fi
-	cat /boot/loader/entries/${default_boot_conf} | grep options | sed 's/.*label=//g' | sed 's/ .*//g'
+	cat ${default_boot_conf} | grep title | sed 's/.*title[ ]*//g'
 }
 
 set_default_boot() {

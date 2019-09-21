@@ -67,10 +67,17 @@ if [ $? -ne 0 ]; then
 	echo "Program terminated (bundle not containing: systemd-${U2UP_EFI_FALLBACK_IMAGE})!"
 	exit 1
 fi
+echo "Extracting U2UP_IDS:"
+tar xvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} -C ${U2UP_CONF_DIR} ${U2UP_IDS_CONF_FILE}
+if [ $? -ne 0 ]; then
+	echo "Program terminated (bundle not containing: ${U2UP_IDS_CONF_FILE})!"
+	exit 1
+fi
 
 echo "press enter to continue..."
 read
 
+source ${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE}
 DIALOG_CANCEL=1
 DIALOG_ESC=255
 HEIGHT=0
@@ -1264,8 +1271,9 @@ populate_root_filesystem() {
 		return $rv
 	fi
 	echo "Create new boot  \"${root_part_label}\" menu:"
+	source ${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE}
 	set -x
-	echo "title ${root_part_label}" > /mnt/loader/entries/${root_part_label}.conf
+	echo "title ${root_part_label} (${U2UP_ROOTFS_DTS})" > /mnt/loader/entries/${root_part_label}.conf
 	(( rv+=$? ))
 	echo "linux /bzImage${root_part_suffix}" >> /mnt/loader/entries/${root_part_label}.conf
 	(( rv+=$? ))
@@ -1403,7 +1411,7 @@ main_loop () {
 			"7" "Static network configuration [${NET_INTERNAL_ADDR_MASK_SET}]" \
 			"8" "Installation packages repo [${INSTALL_REPO_BASE_URL_SET}]" \
 			"9" "Installation partition [${TARGET_PART_SET} - ${root_part_label}]" \
-			"10" "Install" \
+			"10" "Install (${U2UP_ROOTFS_DTS})" \
 		2>&1 1>&3)
 		exit_status=$?
 		exec 3>&-

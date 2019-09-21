@@ -12,8 +12,8 @@ if [ ! -f "${U2UP_INSTALL_BASH_LIB}" ]; then
 fi
 source ${U2UP_INSTALL_BASH_LIB}
 
-current_boot_label="$(get_current_boot_label)"
-if [ -z "${current_boot_label}" ]; then
+default_boot_label="$(get_default_boot_label)"
+if [ -z "${default_boot_label}" ]; then
 	echo "Program terminated (unrecognised current boot setup)!"
 	exit 1
 fi
@@ -39,7 +39,8 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-U2UP_IMAGES_DIR="/var/lib/u2up-images"
+# Use common partition to download images bundle:
+U2UP_IMAGES_DIR="/var/log/u2up-images"
 U2UP_IMAGES_BUNDLE_NAME="u2up-homegw-bundle"
 U2UP_IMAGES_BUNDLE_ARCHIVE=${U2UP_IMAGES_BUNDLE_NAME}.tar
 U2UP_IMAGES_BUNDLE_ARCHIVE_SUM=${U2UP_IMAGES_BUNDLE_NAME}.tar.sha256
@@ -52,11 +53,13 @@ U2UP_KERNEL_IMAGE=bzImage
 U2UP_INITRD_IMAGE=microcode
 U2UP_EFI_FALLBACK_IMAGE=bootx64.efi
 
+source ${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE}
+U2UP_CURRENT_ROOTFS_DTS=${U2UP_ROOTFS_DTS}
 DIALOG_CANCEL=1
 DIALOG_ESC=255
 HEIGHT=0
 WIDTH=0
-U2UP_BACKTITLE="U2UP-HOMEGW installer (${current_root_part_label}):"
+U2UP_BACKTITLE="U2UP-HOMEGW installer - ${current_root_part_label} (${U2UP_CURRENT_ROOTFS_DTS}):"
 
 display_result() {
 	dialog \
@@ -265,15 +268,11 @@ display_target_boot_submenu() {
 	local tag="start_tag"
 
 	radiolist=$(ls /boot/loader/entries/ | sed 's/\.conf//g' | while read line; do
-		set -- $line
-		if [ -n "$1" ] && [ "$1" != "NAME" ] && [[ "$1" != "$tag"* ]]; then
-			tag=$1
-			shift
-			if [ -n "$current_boot_label" ] && [ "$tag" == "$current_boot_label" ]; then
-				echo -n "${tag}|"$@"|on|"
-			else
-				echo -n "${tag}|"$@"|off|"
-			fi
+		tag=$(get_boot_label $line)
+		if [ -n "$default_boot_label" ] && [ "$tag" == "$default_boot_label" ]; then
+			echo -n "${tag}|"$@"|on|"
+		else
+			echo -n "${tag}|"$@"|off|"
 		fi
 	done)
 
@@ -1218,6 +1217,14 @@ populate_root_filesystem() {
 #	if [ $rv -ne 0 ]; then
 #		return $rv
 #	fi
+	echo "Extracting U2UP_IDS:"
+	set -x
+	tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --overwrite -C ${U2UP_UPGRADE_CONF_DIR} ${U2UP_IDS_CONF_FILE}
+	rv=$?
+	set +x
+	if [ $rv -ne 0 ]; then
+		return $rv
+	fi
 	echo "Populate \"u2up-config.d\" of the installed system:"
 	set -x
 	populate_u2up_configurations "/mnt" "${U2UP_UPGRADE_CONF_DIR}"
@@ -1266,15 +1273,6 @@ populate_root_filesystem() {
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
-#	echo "Mounting boot filesystem:"
-#	umount -f /mnt
-#	set -x
-#	mount /dev/${TARGET_DISK_SET}1 /mnt
-#	rv=$?
-#	set +x
-#	if [ $rv -ne 0 ]; then
-#		return $rv
-#	fi
 	echo "Prepare boot images:"
 	mkdir -p /boot/EFI/BOOT
 	mkdir -p /boot/loader/entries
@@ -1298,8 +1296,9 @@ populate_root_filesystem() {
 		return $rv
 	fi
 	echo "Create new boot  \"${root_part_label}\" menu:"
+	source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_IDS_CONF_FILE}
 	set -x
-	echo "title ${root_part_label}" > /boot/loader/entries/${root_part_label}.conf
+	echo "title ${root_part_label} (${U2UP_ROOTFS_DTS})" > /boot/loader/entries/${root_part_label}.conf
 	(( rv+=$? ))
 	echo "linux /bzImage${root_part_suffix}" >> /boot/loader/entries/${root_part_label}.conf
 	(( rv+=$? ))
@@ -1315,7 +1314,10 @@ populate_root_filesystem() {
 }
 
 get_prepare_images_bundle() {
-	local rv=1
+	local rv=0
+	local msg_warn=
+	local msg_size=6
+	local action_name="Get new images bundle"
 	local INSTALL_REPO_BASE_URL=""
 
 	source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}
@@ -1326,87 +1328,118 @@ get_prepare_images_bundle() {
 		return $rv
 	fi
 	cd ${U2UP_IMAGES_DIR}
-	echo "Get new image bundle checksum!"
-	wget ${INSTALL_REPO_BASE_URL}/${U2UP_IMAGES_BUNDLE_NAME}.tar.sha256
+	if [ -f "${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}" ]; then
+		mv -f ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM} ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}_existing
+	fi
+	echo "Get new images bundle checksum!"
+	wget ${INSTALL_REPO_BASE_URL}/${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
 	rv=$?
 	if [ $rv -ne 0 ]; then
-		echo "Could not get new image bundle checksum!"
-		if [ ! -f "${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_NAME}.tar.sha256" ]; then
-			echo "Existing image bundle checksum not available (can not proceed)!"
+		echo "Could not get new images bundle checksum!"
+		msg_warn="${msg_warn}\nCould not get new images bundle checksum (check access)!"
+		((msg_size+=1))
+		rm -f ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
+		if [ -f "${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}_existing" ]; then
+			mv -f ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}_existing ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
+			msg_warn="${msg_warn}\nUsing existing images bundle checksum!"
+			((msg_size+=1))
+		else
+			display_msg "${action_name}" "${msg_warn}" ${msg_size}
 			cd - 2> /dev/null
 			return $rv
 		fi
 		rv=0
-		echo "Using existing image bundle checksum!"
-	fi
-	ln -sf ${U2UP_IMAGES_BUNDLE_ARCHIVE} $(cat ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM} | sed -e 's%^.* %%g')
-	if [ -f "${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_NAME}.tar" ]; then
-		echo "Using existing image bundle!"
-		sha256sum -c ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
-		if [ $? -ne 0 ]; then
-			echo "Image bundle checksum mismatch: ${U2UP_IMAGES_BUNDLE_ARCHIVE}!"
-			echo "Get new image bundle!"
-			wget ${INSTALL_REPO_BASE_URL}/${U2UP_IMAGES_BUNDLE_NAME}.tar
-			rv=$?
-			if [ $rv -ne 0 ]; then
-				echo "Could not get new image bundle (can not proceed)!"
-				cd - 2> /dev/null
-				return $rv
-			fi
-			echo "Using new image bundle!"
-			sha256sum -c ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
-			if [ $? -ne 0 ]; then
-				echo "Image bundle checksum mismatch: ${U2UP_IMAGES_BUNDLE_ARCHIVE} (can not proceed)!"
-				cd - 2> /dev/null
-				return $rv
-			fi
-		fi
 	else
-		echo "Get new image bundle!"
-		wget ${INSTALL_REPO_BASE_URL}/${U2UP_IMAGES_BUNDLE_NAME}.tar
-		rv=$?
-		if [ $rv -ne 0 ]; then
-			echo "Could not get new image bundle (can not proceed)!"
-			cd - 2> /dev/null
-			return $rv
-		fi
-		echo "Using new image bundle!"
-		sha256sum -c ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
-		if [ $? -ne 0 ]; then
-			echo "Image bundle checksum mismatch: ${U2UP_IMAGES_BUNDLE_ARCHIVE} (can not proceed)!"
-			cd - 2> /dev/null
-			return $rv
-		fi
+		msg_warn="${msg_warn}\nGot new images bundle checksum!"
+		((msg_size+=1))
 	fi
+	rm -f ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}_existing
+	ln -sf ${U2UP_IMAGES_BUNDLE_ARCHIVE} $(cat ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM} | sed -e 's%^.* %%g')
+	if [ -f "${U2UP_IMAGES_BUNDLE_ARCHIVE}" ]; then
+		echo "Trying existing images bundle!"
+		sha256sum -c ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
+		rv=$?
+		if [ $rv -eq 0 ]; then
+			msg_warn="${msg_warn}\nUsing existing images bundle (checksum OK)!"
+			((msg_size+=1))
+			display_msg "${action_name}" "${msg_warn}" ${msg_size}
+			cd - 2> /dev/null
+			return $rv
+		fi
+		msg_warn="${msg_warn}\nExisting images bundle checksum mismatch!"
+		((msg_size+=1))
+		mv -f ${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_IMAGES_BUNDLE_ARCHIVE}_existing
+	fi
+	echo "Get new images bundle!"
+	wget ${INSTALL_REPO_BASE_URL}/${U2UP_IMAGES_BUNDLE_ARCHIVE}
+	rv=$?
+	if [ $rv -ne 0 ]; then
+		echo "Could not get new images bundle!"
+		msg_warn="${msg_warn}\nCould not get new images bundle (check access)!"
+		((msg_size+=1))
+		rm -f ${U2UP_IMAGES_BUNDLE_ARCHIVE}
+		if [ -f "${U2UP_IMAGES_BUNDLE_ARCHIVE}_existing" ]; then
+			mv -f ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}_existing ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
+		fi
+		display_msg "${action_name}" "${msg_warn}" ${msg_size}
+		cd - 2> /dev/null
+		return $rv
+	fi
+	rm -f ${U2UP_IMAGES_BUNDLE_ARCHIVE}_existing
+	echo "Using new images bundle!"
+	sha256sum -c ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
+	if [ $? -ne 0 ]; then
+		msg_warn="${msg_warn}\nNew images bundle checksum mismatch!"
+	else
+		msg_warn="${msg_warn}\nNew images bundle checksum OK!"
+	fi
+	((msg_size+=1))
+	display_msg "${action_name}" "${msg_warn}" ${msg_size}
 	cd - 2> /dev/null
 	return $rv
 }
 
-check_image_bundle_content() {
+check_images_bundle_content() {
 	local rv=1
 
+	cd ${U2UP_IMAGES_DIR}
+	ln -sf ${U2UP_IMAGES_BUNDLE_ARCHIVE} $(cat ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM} | sed -e 's%^.* %%g')
+	sha256sum -c ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
+	rv=$?
+	if [ $rv -ne 0 ]; then
+		echo "Images bundle checksum mismatch!"
+		cd - 2> /dev/null
+		return $rv
+	fi
+	cd - 2> /dev/null
+	tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_IDS_CONF_FILE}
+	rv=$?
+	if [ $rv -ne 0 ]; then
+		echo "Images bundle not containing: ${U2UP_IDS_CONF_FILE}!"
+		return $rv
+	fi
 	tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz
 	rv=$?
 	if [ $rv -ne 0 ]; then
-		echo "Image bundle not containing: ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz!"
+		echo "Images bundle not containing: ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz!"
 		return $rv
 	fi
 	tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin
 	rv=$?
 	if [ $rv -ne 0 ]; then
-		echo "Image bundle not containing: ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin!"
+		echo "Images bundle not containing: ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin!"
 		return $rv
 	fi
 	tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_INITRD_IMAGE}.cpio
 	rv=$?
 	if [ $rv -ne 0 ]; then
-		echo "Image bundle not containing: ${U2UP_INITRD_IMAGE}.cpio!"
+		echo "Images bundle not containing: ${U2UP_INITRD_IMAGE}.cpio!"
 		return $rv
 	fi
 	tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} systemd-${U2UP_EFI_FALLBACK_IMAGE}
 	rv=$?
 	if [ $rv -ne 0 ]; then
-		echo "Image bundle not containing: systemd-${U2UP_EFI_FALLBACK_IMAGE}!"
+		echo "Images bundle not containing: systemd-${U2UP_EFI_FALLBACK_IMAGE}!"
 		return $rv
 	fi
 	return $rv
@@ -1415,22 +1448,7 @@ check_image_bundle_content() {
 proceed_target_install() {
 	local rv=1
 
-	check_install_repo_config_set
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-
-	get_prepare_images_bundle
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		echo "press enter to continue..."
-		read
-		display_result "Installation" "Failed to get / prepare images bundle!"
-		return $rv
-	fi
-
-	check_image_bundle_content
+	check_images_bundle_content
 	rv=$?
 	if [ $rv -ne 0 ]; then
 		echo "press enter to continue..."
@@ -1526,11 +1544,11 @@ main_loop () {
 		exec 3>&1
 		selection=$(dialog \
 			--backtitle "${U2UP_BACKTITLE}" \
-			--title "Menu (${current_root_part_label})" \
+			--title "Menu - ${current_root_part_label} (${U2UP_CURRENT_ROOTFS_DTS})" \
 			--clear \
 			--cancel-label "Exit" \
 			--default-item $current_tag \
-			--menu "Please select:" $HEIGHT $WIDTH 12 \
+			--menu "Please select:" $HEIGHT $WIDTH 13 \
 			"1" "Keyboard mapping [${KEYMAP_SET}]" \
 			"2" "Target disk [${TARGET_DISK_SET}]" \
 			"3" "Disk partitions \
@@ -1544,9 +1562,10 @@ main_loop () {
 			"7" "Static network configuration [${NET_INTERNAL_ADDR_MASK_SET}]" \
 			"8" "Installation packages repo [${INSTALL_REPO_BASE_URL_SET}]" \
 			"9" "Installation partition [${TARGET_PART_SET} - ${root_part_label}]" \
-			"10" "Install" \
-			"11" "Default boot [${current_boot_label}]" \
-			"12" "Reboot" \
+			"10" "Get new images bundle" \
+			"11" "Install (${U2UP_INSTALL_ROOTFS_DTS})" \
+			"12" "Default boot [${default_boot_label}]" \
+			"13" "Reboot" \
 		2>&1 1>&3)
 		exit_status=$?
 		exec 3>&-
@@ -1658,13 +1677,29 @@ main_loop () {
 				$TARGET_PART_SET
 			;;
 		10)
-			execute_target_install
+			check_install_repo_config_set
+			if [ $? -eq 0 ]; then
+				get_prepare_images_bundle
+				if [ $? -eq 0 ]; then
+					check_images_bundle_content
+					if [ $? -eq 0 ]; then
+						U2UP_INSTALL_ROOTFS_DTS=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} | grep U2UP_ROOTFS_DTS | sed 's/U2UP_ROOTFS_DTS\=//')
+					else
+						U2UP_INSTALL_ROOTFS_DTS=""
+					fi
+				fi
+			fi
+
 			;;
 		11)
-			display_target_boot_submenu
-			current_boot_label="$(get_current_boot_label)"
+			execute_target_install
+			default_boot_label="$(get_default_boot_label)"
 			;;
 		12)
+			display_target_boot_submenu
+			default_boot_label="$(get_default_boot_label)"
+			;;
+		13)
 			display_yesno "Reboot" \
 				"You are about to reboot the system!\n\nDo you want to continue?" 7
 			if [ $? -eq 0 ]; then
@@ -1676,6 +1711,13 @@ main_loop () {
 		esac
 	done
 }
+
+check_images_bundle_content
+if [ $? -eq 0 ]; then
+	U2UP_INSTALL_ROOTFS_DTS=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} | grep U2UP_ROOTFS_DTS | sed 's/U2UP_ROOTFS_DTS\=//')
+else
+	U2UP_INSTALL_ROOTFS_DTS=""
+fi
 
 # Call main function:
 main_loop
