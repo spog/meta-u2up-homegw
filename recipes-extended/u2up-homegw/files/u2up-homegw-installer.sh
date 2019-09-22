@@ -3,30 +3,34 @@
 # A dialog menu based u2up-homegw-installer program, used
 # to make new installation to the inactive partition.
 #
-#set -xe
+trap "echo 'Exited: '${0} >&2; exec 2>&-" EXIT
+exec 2> >(logger -s -t $(basename $0))
+echo >&2
+echo "Started: ${0}" >&2
+#set -x
 
 U2UP_INSTALL_BASH_LIB="/lib/u2up/u2up-install-bash-lib"
 if [ ! -f "${U2UP_INSTALL_BASH_LIB}" ]; then
-	echo "Program terminated (missing: ${U2UP_INSTALL_BASH_LIB})!"
+	echo "Program terminated (missing: ${U2UP_INSTALL_BASH_LIB})!" >&2
 	exit 1
 fi
 source ${U2UP_INSTALL_BASH_LIB}
 
 default_boot_label="$(get_default_boot_label)"
 if [ -z "${default_boot_label}" ]; then
-	echo "Program terminated (unrecognised current boot setup)!"
+	echo "Program terminated (unrecognised current boot setup)!" >&2
 	exit 1
 fi
 U2UP_CURRENT_TARGET_DISK=$(get_current_target_disk)
 U2UP_CURRENT_TARGET_PART=$(get_current_target_part)
 current_root_part_label="$(get_root_label ${U2UP_CURRENT_TARGET_DISK} ${U2UP_CURRENT_TARGET_PART})"
 if [ -z "${current_root_part_label}" ]; then
-	echo "Program terminated (unrecognised current root disk and partition: disk=\"${U2UP_CURRENT_TARGET_DISK}\", part=\"${U2UP_CURRENT_TARGET_PART}\")!"
+	echo "Program terminated (unrecognised current root disk and partition: disk=\"${U2UP_CURRENT_TARGET_DISK}\", part=\"${U2UP_CURRENT_TARGET_PART}\")!" >&2
 	exit 1
 fi
 current_root_part_label_suffix="$(get_root_label_suffix_from_label ${current_root_part_label})"
 if [ -z "${current_root_part_label_suffix}" ]; then
-	echo "Program terminated (unrecognised current root partition label: disk=\"${U2UP_CURRENT_TARGET_DISK}\", part=\"${U2UP_CURRENT_TARGET_PART}\")!"
+	echo "Program terminated (unrecognised current root partition label: disk=\"${U2UP_CURRENT_TARGET_DISK}\", part=\"${U2UP_CURRENT_TARGET_PART}\")!" >&2
 	exit 1
 fi
 
@@ -35,7 +39,7 @@ rm -rf $U2UP_UPGRADE_CONF_DIR
 mkdir -p $U2UP_UPGRADE_CONF_DIR
 prepare_u2up_upgrade_configuration ${U2UP_UPGRADE_CONF_DIR}
 if [ $? -ne 0 ]; then
-	echo "Program terminated (failed to prepare upgrade configuration in: ${U2UP_UPGRADE_CONF_DIR})!"
+	echo "Program terminated (failed to prepare upgrade configuration in: ${U2UP_UPGRADE_CONF_DIR})!" >&2
 	exit 1
 fi
 
@@ -110,14 +114,14 @@ display_keymap_submenu() {
 		--cancel-label "Cancel" \
 		--menu "Please select:" $HEIGHT $WIDTH 0 \
 		${menu} \
-	2>&1 1>&3)
+	2>&1 >&3)
 	exit_status=$?
 	exec 3>&-
 
 	case $exit_status in
 	$DIALOG_CANCEL|$DIALOG_ESC)
 		clear
-		echo "Return from submenu."
+		echo "Return from submenu." >&2
 		return 0
 		;;
 	esac
@@ -157,14 +161,14 @@ display_target_disk_submenu() {
 		--cancel-label "Cancel" \
 		--radiolist "Please select:" $HEIGHT $WIDTH 0 \
 		${radiolist} \
-	2>&1 1>&3)
+	2>&1 >&3)
 	exit_status=$?
 	exec 3>&-
 
 	case $exit_status in
 	$DIALOG_CANCEL|$DIALOG_ESC)
 		clear
-		echo "Return from submenu."
+		echo "Return from submenu." >&2
 		return 0
 		;;
 	esac
@@ -200,14 +204,14 @@ display_net_internal_ifname_submenu() {
 		--cancel-label "Cancel" \
 		--radiolist "Please select:" $HEIGHT $WIDTH 0 \
 		${radiolist} \
-	2>&1 1>&3)
+	2>&1 >&3)
 	exit_status=$?
 	exec 3>&-
 
 	case $exit_status in
 	$DIALOG_CANCEL|$DIALOG_ESC)
 		clear
-		echo "Return from submenu."
+		echo "Return from submenu." >&2
 		return 0
 		;;
 	esac
@@ -247,14 +251,14 @@ display_target_part_submenu() {
 		--cancel-label "Cancel" \
 		--radiolist "Please select:" $HEIGHT $WIDTH 0 \
 		${radiolist} \
-	2>&1 1>&3)
+	2>&1 >&3)
 	exit_status=$?
 	exec 3>&-
 
 	case $exit_status in
 	$DIALOG_CANCEL|$DIALOG_ESC)
 		clear
-		echo "Return from submenu."
+		echo "Return from submenu." >&2
 		return 0
 		;;
 	esac
@@ -288,14 +292,14 @@ display_target_boot_submenu() {
 		--cancel-label "Cancel" \
 		--radiolist "Please select:" $HEIGHT $WIDTH 0 \
 		${radiolist} \
-	2>&1 1>&3)
+	2>&1 >&3)
 	exit_status=$?
 	exec 3>&-
 
 	case $exit_status in
 	$DIALOG_CANCEL|$DIALOG_ESC)
 		clear
-		echo "Return from submenu."
+		echo "Return from submenu." >&2
 		return 0
 		;;
 	esac
@@ -746,23 +750,23 @@ EOF
 proceed_target_repartition() {
 	loacal rv=1
 	if [ -f "${U2UP_TARGET_DISK_SFDISK_BASH}" ]; then
-		echo "Re-partitioning disk:"
+		echo "Re-partitioning disk:" >&2
 		bash ${U2UP_TARGET_DISK_SFDISK_BASH}
 		if [ $? -ne 0 ]; then
-			echo "press enter to continue..."
+			echo "press enter to continue..." >&2
 			read
 			display_result "Re-partition" "Failed to re-partition disk!"
 			return 1
 		fi
 		sfdisk -V /dev/${TARGET_DISK_SET}
 		if [ $? -ne 0 ]; then
-			echo "press enter to continue..."
+			echo "press enter to continue..." >&2
 			read
 			display_result "Re-partition" "Failed to re-partition disk!"
 			return 1
 		fi
 	fi
-	echo "press enter to continue..."
+	echo "press enter to continue..." >&2
 	read
 	display_result "Re-partition" "Re-partition successfully finished!"
 }
@@ -815,14 +819,14 @@ display_target_partsizes_submenu() {
 			"log   [/dev/${target_disk_current}2] (GiB):" ${target_log_partsz_current} \
 			"rootA [/dev/${target_disk_current}3] (GiB):" ${target_rootA_partsz_current} \
 			"rootB [/dev/${target_disk_current}4] (GiB):" ${target_rootB_partsz_current} \
-		2>&1 1>&3)
+		2>&1 >&3)
 		exit_status=$?
 		exec 3>&-
 
 		case $exit_status in
 		$DIALOG_CANCEL|$DIALOG_ESC)
 			clear
-			echo "Return from submenu."
+			echo "Return from submenu." >&2
 			return 1
 			;;
 		esac
@@ -863,14 +867,14 @@ display_target_hostname_submenu() {
 			--cr-wrap \
 			--inputmenu "\nPlease set:" $HEIGHT 0 6 \
 			"Hostname:" ${target_hostname_current} \
-		2>&1 1>&3)
+		2>&1 >&3)
 		exit_status=$?
 		exec 3>&-
 
 		case $exit_status in
 		$DIALOG_CANCEL|$DIALOG_ESC)
 			clear
-			echo "Return from submenu."
+			echo "Return from submenu." >&2
 			return 1
 			;;
 		esac
@@ -908,14 +912,14 @@ display_target_admin_submenu() {
 			--cr-wrap \
 			--inputmenu "\nPlease set:" $HEIGHT 0 6 \
 			"Admin name:" ${target_admin_name_current} \
-		2>&1 1>&3)
+		2>&1 >&3)
 		exit_status=$?
 		exec 3>&-
 
 		case $exit_status in
 		$DIALOG_CANCEL|$DIALOG_ESC)
 			clear
-			echo "Return from submenu."
+			echo "Return from submenu." >&2
 			return 1
 			;;
 		esac
@@ -967,14 +971,14 @@ display_net_config_submenu() {
 			"IP gateway:" ${net_internal_gw_current} \
 			"DNS:" ${net_dns_current} \
 			"Domains:" ${net_domains_current} \
-		2>&1 1>&3)
+		2>&1 >&3)
 		exit_status=$?
 		exec 3>&-
 
 		case $exit_status in
 		$DIALOG_CANCEL|$DIALOG_ESC)
 			clear
-			echo "Return from submenu."
+			echo "Return from submenu." >&2
 			return 1
 			;;
 		esac
@@ -1056,14 +1060,14 @@ display_install_repo_config_submenu() {
 			--cr-wrap \
 			--inputmenu "\nPlease set:" $HEIGHT 0 12 \
 			"Base URL:" ${install_repo_base_url_current} \
-		2>&1 1>&3)
+		2>&1 >&3)
 		exit_status=$?
 		exec 3>&-
 
 		case $exit_status in
 		$DIALOG_CANCEL|$DIALOG_ESC)
 			clear
-			echo "Return from submenu."
+			echo "Return from submenu." >&2
 			return 1
 			;;
 		esac
@@ -1095,72 +1099,62 @@ check_create_filesystems() {
 		return $rv
 	fi
 	# Installation partition:
-	echo "Allways re-create EXT4 filesystem on installation partition /dev/$TARGET_PART_SET:"
-	umount -f /mnt
-	set -x
-	mkfs.ext4 -F /dev/$TARGET_PART_SET
+	echo "Allways re-create EXT4 filesystem on installation partition /dev/$TARGET_PART_SET:" >&2
+	umount -f /mnt >&2
+	mkfs.ext4 -F /dev/$TARGET_PART_SET >&2
 	rv=$?
-	set +x
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
-	echo -e "OK!\n"
+	echo -e "OK!\n" >&2
 	# Boot partition:
-	echo "Check / re-create VFAT filesystem on \"boot\" partition /dev/${TARGET_DISK_SET}1:"
+	echo "Check / re-create VFAT filesystem on \"boot\" partition /dev/${TARGET_DISK_SET}1:" >&2
 	fstype="$(lsblk -fr /dev/${TARGET_DISK_SET}1 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
 	if [ -z "$fstype" ] || [ "$fstype" != "vfat" ]; then
-		echo "Recreate:"
-		set -x
-		mkfs.vfat -F /dev/${TARGET_DISK_SET}1
+		echo "Recreate:" >&2
+		mkfs.vfat -F /dev/${TARGET_DISK_SET}1 >&2
 		rv=$?
-		set +x
 		if [ $rv -ne 0 ]; then
 			return $rv
 		fi
 	fi
-	echo -e "OK!\n"
+	echo -e "OK!\n" >&2
 	# Log partition:
-	echo "Check / re-create EXT4 filesystem on \"log\" partition /dev/${TARGET_DISK_SET}1:"
+	echo "Check / re-create EXT4 filesystem on \"log\" partition /dev/${TARGET_DISK_SET}1:" >&2
 	fstype="$(lsblk -fr /dev/${TARGET_DISK_SET}2 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
 	if [ -z "$fstype" ] || [ "$fstype" != "ext4" ]; then
-		echo "Recreate:"
-		set -x
-		mkfs.ext4 -F /dev/${TARGET_DISK_SET}2
+		echo "Recreate:" >&2
+		mkfs.ext4 -F /dev/${TARGET_DISK_SET}2 >&2
 		rv=$?
-		set +x
 		if [ $rv -ne 0 ]; then
 			return $rv
 		fi
 	fi
-	echo -e "OK!\n"
+	echo -e "OK!\n" >&2
 	# RootA partition:
-	echo "Check / re-create EXT4 filesystem on \"rootA\" partition /dev/${TARGET_DISK_SET}1:"
+	echo "Check / re-create EXT4 filesystem on \"rootA\" partition /dev/${TARGET_DISK_SET}1:" >&2
 	fstype="$(lsblk -fr /dev/${TARGET_DISK_SET}3 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
 	if [ -z "$fstype" ] || [ "$fstype" != "ext4" ]; then
-		echo "Recreate:"
-		set -x
-		mkfs.ext4 -F /dev/${TARGET_DISK_SET}3
+		echo "Recreate:" >&2
+		mkfs.ext4 -F /dev/${TARGET_DISK_SET}3 >&2
 		rv=$?
-		set +x
 		if [ $rv -ne 0 ]; then
 			return $rv
 		fi
 	fi
-	echo -e "OK!\n"
+	echo -e "OK!\n" >&2
 	# RootB partition:
-	echo "Check / re-create EXT4 filesystem on \"rootB\" partition /dev/${TARGET_DISK_SET}1:"
+	echo "Check / re-create EXT4 filesystem on \"rootB\" partition /dev/${TARGET_DISK_SET}1:" >&2
 	fstype="$(lsblk -fr /dev/${TARGET_DISK_SET}4 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
 	if [ -z "$fstype" ] || [ "$fstype" != "ext4" ]; then
-		echo "Recreate:"
-		set -x
-		mkfs.ext4 -F /dev/${TARGET_DISK_SET}4
+		echo "Recreate:" >&2
+		mkfs.ext4 -F /dev/${TARGET_DISK_SET}4 >&2
 		rv=$?
-		set +x
 		if [ $rv -ne 0 ]; then
 			return $rv
 		fi
 	fi
-	echo -e "OK!\n"
+	echo -e "OK!\n" >&2
 	rv=0
 	return $rv
 }
@@ -1191,121 +1185,98 @@ populate_root_filesystem() {
 		return $rv
 	fi
 
-	echo "Mounting root filesystem:"
-	umount -f /mnt
-	set -x
-	mount /dev/$TARGET_PART_SET /mnt
+	echo "Mounting root filesystem:" >&2
+	umount -f /mnt >&2
+	mount /dev/$TARGET_PART_SET /mnt >&2
 	rv=$?
-	set +x
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
-	echo "Extracting root filesystem archive:"
-	set -x
-	tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz | tar xz -C /mnt
+	echo "Extracting root filesystem archive:" >&2
+	tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz | tar xz -C /mnt >&2
 	rv=$?
-	set +x
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
-#	echo "Extracting kernel modules archive:"
+#	echo "Extracting kernel modules archive:" >&2
 #	set -x
-#	tar xvf ${U2UP_IMAGES_DIR}${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_KERNEL_MODULES_IMAGE_ARCHIVE}-${MACHINE}.tgz | tar xz -C /mnt
+#	tar xvf ${U2UP_IMAGES_DIR}${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_KERNEL_MODULES_IMAGE_ARCHIVE}-${MACHINE}.tgz | tar xz -C /mnt >&2
 #	rv=$?
-#	set +x
 #	if [ $rv -ne 0 ]; then
 #		return $rv
 #	fi
-	echo "Extracting U2UP_IDS:"
-	set -x
-	tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --overwrite -C ${U2UP_UPGRADE_CONF_DIR} ${U2UP_IDS_CONF_FILE}
+	echo "Extracting U2UP_IDS:" >&2
+	tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --overwrite -C ${U2UP_UPGRADE_CONF_DIR} ${U2UP_IDS_CONF_FILE} >&2
 	rv=$?
-	set +x
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
-	echo "Populate \"u2up-config.d\" of the installed system:"
-	set -x
+	echo "Populate \"u2up-config.d\" of the installed system:" >&2
 	populate_u2up_configurations "/mnt" "${U2UP_UPGRADE_CONF_DIR}"
-	(( rv+=$? ))
-	set +x
+	((rv+=$?))
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
-	echo "Configure target keyboard mapping:"
-	set -x
+	echo "Configure target keyboard mapping:" >&2
 	enable_keymap_selection 1 "/mnt"
-	(( rv+=$? ))
-	set +x
+	((rv+=$?))
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
-	echo "Configure \"fstab\" for common boot partition:"
-	set -x
+	echo "Configure \"fstab\" for common boot partition:" >&2
 	echo "/dev/${TARGET_DISK_SET}1 /boot vfat umask=0077 0 1" >> /mnt/etc/fstab
-	(( rv+=$? ))
-	set +x
+	((rv+=$?))
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
-	echo "Configure \"fstab\" for common logging partition:"
-	set -x
+	echo "Configure \"fstab\" for common logging partition:" >&2
 	echo "/dev/${TARGET_DISK_SET}2 /var/log ext4 errors=remount-ro 0 1" >> /mnt/etc/fstab
-	(( rv+=$? ))
-	set +x
+	((rv+=$?))
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
-	echo "Done configuring target disk and partitions:"
-	set -x
+	echo "Done configuring target disk and partitions:" >&2
 	set_target_done_for /mnt/${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE} 1
-	(( rv+=$? ))
-	set +x
+	((rv+=$?))
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
-	echo "Configure \"internal network\" of the installed system:"
-	set -x
+	echo "Configure \"internal network\" of the installed system:" >&2
 	execute_net_reconfiguration "/mnt/"
-	(( rv+=$? ))
-	set +x
+	((rv+=$?))
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
-	echo "Prepare boot images:"
+	echo "Prepare boot images:" >&2
 	mkdir -p /boot/EFI/BOOT
 	mkdir -p /boot/loader/entries
-	set -x
-	tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin
-	(( rv+=$? ))
-	mv /boot/${U2UP_KERNEL_IMAGE}-${MACHINE}.bin /boot/bzImage${root_part_suffix}
-	(( rv+=$? ))
-	tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot ${U2UP_INITRD_IMAGE}.cpio
-	(( rv+=$? ))
-	mv /boot/${U2UP_INITRD_IMAGE}.cpio /boot/microcode${root_part_suffix}.cpio
-	(( rv+=$? ))
+	tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin >&2
+	((rv+=$?))
+	mv /boot/${U2UP_KERNEL_IMAGE}-${MACHINE}.bin /boot/bzImage${root_part_suffix} >&2
+	((rv+=$?))
+	tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot ${U2UP_INITRD_IMAGE}.cpio >&2
+	((rv+=$?))
+	mv /boot/${U2UP_INITRD_IMAGE}.cpio /boot/microcode${root_part_suffix}.cpio >&2
+	((rv+=$?))
 	if [ ! -f "/boot/EFI/BOOT/bootx64.efi" ]; then
-		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot/EFI/BOOT systemd-${U2UP_EFI_FALLBACK_IMAGE}
-		(( rv+=$? ))
-		mv /boot/EFI/BOOT/systemd-${U2UP_EFI_FALLBACK_IMAGE} /boot/EFI/BOOT/${U2UP_EFI_FALLBACK_IMAGE}
-		(( rv+=$? ))
+		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot/EFI/BOOT systemd-${U2UP_EFI_FALLBACK_IMAGE} >&2
+		((rv+=$?))
+		mv /boot/EFI/BOOT/systemd-${U2UP_EFI_FALLBACK_IMAGE} /boot/EFI/BOOT/${U2UP_EFI_FALLBACK_IMAGE} >&2
+		((rv+=$?))
 	fi
-	set +x
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
-	echo "Create new boot  \"${root_part_label}\" menu:"
+	echo "Create new boot  \"${root_part_label}\" menu:" >&2
 	source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_IDS_CONF_FILE}
-	set -x
 	echo "title ${root_part_label} (${U2UP_ROOTFS_DTS})" > /boot/loader/entries/${root_part_label}.conf
-	(( rv+=$? ))
+	((rv+=$?))
 	echo "linux /bzImage${root_part_suffix}" >> /boot/loader/entries/${root_part_label}.conf
-	(( rv+=$? ))
+	((rv+=$?))
 	echo "options label=${root_part_label} root=PARTUUID=${root_part_uuid} rootwait rootfstype=ext4 console=tty0 ttyprintk.tioccons=1" >> /boot/loader/entries/${root_part_label}.conf
-	(( rv+=$? ))
+	((rv+=$?))
 	echo "initrd /microcode${root_part_suffix}.cpio" >> /boot/loader/entries/${root_part_label}.conf
-	(( rv+=$? ))
-	set +x
+	((rv+=$?))
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
@@ -1330,11 +1301,11 @@ get_prepare_images_bundle() {
 	if [ -f "${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}" ]; then
 		mv -f ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM} ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}_existing
 	fi
-	echo "Get new images bundle checksum!"
+	echo "Get new images bundle checksum!" >&2
 	wget ${INSTALL_REPO_BASE_URL}/${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
 	rv=$?
 	if [ $rv -ne 0 ]; then
-		echo "Could not get new images bundle checksum!"
+		echo "Could not get new images bundle checksum!" >&2
 		msg_warn="${msg_warn}\nCould not get new images bundle checksum (check access)!"
 		((msg_size+=1))
 		rm -f ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
@@ -1355,7 +1326,7 @@ get_prepare_images_bundle() {
 	rm -f ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}_existing
 	ln -sf ${U2UP_IMAGES_BUNDLE_ARCHIVE} $(cat ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM} | sed -e 's%^.* %%g')
 	if [ -f "${U2UP_IMAGES_BUNDLE_ARCHIVE}" ]; then
-		echo "Trying existing images bundle!"
+		echo "Trying existing images bundle!" >&2
 		sha256sum -c ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
 		rv=$?
 		if [ $rv -eq 0 ]; then
@@ -1369,11 +1340,11 @@ get_prepare_images_bundle() {
 		((msg_size+=1))
 		mv -f ${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_IMAGES_BUNDLE_ARCHIVE}_existing
 	fi
-	echo "Get new images bundle!"
+	echo "Get new images bundle!" >&2
 	wget ${INSTALL_REPO_BASE_URL}/${U2UP_IMAGES_BUNDLE_ARCHIVE}
 	rv=$?
 	if [ $rv -ne 0 ]; then
-		echo "Could not get new images bundle!"
+		echo "Could not get new images bundle!" >&2
 		msg_warn="${msg_warn}\nCould not get new images bundle (check access)!"
 		((msg_size+=1))
 		rm -f ${U2UP_IMAGES_BUNDLE_ARCHIVE}
@@ -1385,7 +1356,7 @@ get_prepare_images_bundle() {
 		return $rv
 	fi
 	rm -f ${U2UP_IMAGES_BUNDLE_ARCHIVE}_existing
-	echo "Using new images bundle!"
+	echo "Using new images bundle!" >&2
 	sha256sum -c ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
 	if [ $? -ne 0 ]; then
 		msg_warn="${msg_warn}\nNew images bundle checksum mismatch!"
@@ -1406,7 +1377,7 @@ check_images_bundle_content() {
 	sha256sum -c ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
 	rv=$?
 	if [ $rv -ne 0 ]; then
-		echo "Images bundle checksum mismatch!"
+		echo "Images bundle checksum mismatch!" >&2
 		cd - 2> /dev/null
 		return $rv
 	fi
@@ -1414,31 +1385,31 @@ check_images_bundle_content() {
 	tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_IDS_CONF_FILE}
 	rv=$?
 	if [ $rv -ne 0 ]; then
-		echo "Images bundle not containing: ${U2UP_IDS_CONF_FILE}!"
+		echo "Images bundle not containing: ${U2UP_IDS_CONF_FILE}!" >&2
 		return $rv
 	fi
 	tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz
 	rv=$?
 	if [ $rv -ne 0 ]; then
-		echo "Images bundle not containing: ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz!"
+		echo "Images bundle not containing: ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz!" >&2
 		return $rv
 	fi
 	tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin
 	rv=$?
 	if [ $rv -ne 0 ]; then
-		echo "Images bundle not containing: ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin!"
+		echo "Images bundle not containing: ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin!" >&2
 		return $rv
 	fi
 	tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_INITRD_IMAGE}.cpio
 	rv=$?
 	if [ $rv -ne 0 ]; then
-		echo "Images bundle not containing: ${U2UP_INITRD_IMAGE}.cpio!"
+		echo "Images bundle not containing: ${U2UP_INITRD_IMAGE}.cpio!" >&2
 		return $rv
 	fi
 	tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} systemd-${U2UP_EFI_FALLBACK_IMAGE}
 	rv=$?
 	if [ $rv -ne 0 ]; then
-		echo "Images bundle not containing: systemd-${U2UP_EFI_FALLBACK_IMAGE}!"
+		echo "Images bundle not containing: systemd-${U2UP_EFI_FALLBACK_IMAGE}!" >&2
 		return $rv
 	fi
 	return $rv
@@ -1450,7 +1421,7 @@ proceed_target_install() {
 	check_images_bundle_content
 	rv=$?
 	if [ $rv -ne 0 ]; then
-		echo "press enter to continue..."
+		echo "press enter to continue..." >&2
 		read
 		display_result "Installation" "Check images bundle content failed!"
 		return $rv
@@ -1459,7 +1430,7 @@ proceed_target_install() {
 	check_create_filesystems
 	rv=$?
 	if [ $rv -ne 0 ]; then
-		echo "press enter to continue..."
+		echo "press enter to continue..." >&2
 		read
 		display_result "Installation" "Failed to check / create filesystems!"
 		return $rv
@@ -1468,13 +1439,13 @@ proceed_target_install() {
 	populate_root_filesystem
 	rv=$?
 	if [ $rv -ne 0 ]; then
-		echo "press enter to continue..."
+		echo "press enter to continue..." >&2
 		read
 		display_result "Installation" "Failed to populate root filesystem!"
 		return $rv
 	fi
 
-	echo "press enter to continue..."
+	echo "press enter to continue..." >&2
 	read
 	display_result "Installation" "Installation successfully finished!"
 	return $rv
@@ -1565,14 +1536,14 @@ main_loop () {
 			"11" "Install (${U2UP_INSTALL_ROOTFS_DTS})" \
 			"12" "Default boot [${default_boot_label}]" \
 			"13" "Reboot" \
-		2>&1 1>&3)
+		2>&1 >&3)
 		exit_status=$?
 		exec 3>&-
 
 		case $exit_status in
 		$DIALOG_CANCEL)
 			clear
-			echo "Program terminated."
+			echo "Program terminated." >&2
 			exit
 			;;
 		$DIALOG_ESC)
@@ -1586,7 +1557,7 @@ main_loop () {
 		case $selection in
 		0)
 			clear
-			echo "Program terminated."
+			echo "Program terminated." >&2
 			;;
 		1)
 			display_keymap_submenu \
