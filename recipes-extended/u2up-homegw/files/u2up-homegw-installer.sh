@@ -135,8 +135,7 @@ display_target_disk_submenu() {
 	local radiolist=""
 	local tag="start_tag"
 
-	current_root=$(lsblk -r | grep " /$" | sed 's/[0-9].*//')
-	radiolist=$(lsblk -ir -o NAME,SIZE,MODEL | grep -v $current_root | sed 's/x20//g' | sed 's/\\//g' | while read line; do
+	radiolist=$(lsblk -ir -o NAME,SIZE,MODEL | sed 's/x20//g' | sed 's/\\//g' | while read line; do
 		set -- $line
 		if [ -n "$1" ] && [ "$1" != "NAME" ] && [[ "$1" != "$tag"* ]]; then
 			tag=$1
@@ -1594,27 +1593,27 @@ main_loop () {
 				$KEYMAP_SET
 			;;
 		2)
-			display_target_disk_submenu \
-				$TARGET_DISK_SET
+#			display_target_disk_submenu \
+#				$TARGET_DISK_SET
 			;;
 		3)
-			local target_boot_partsz_old=$TARGET_BOOT_PARTSZ_SET
-			local target_log_partsz_old=$TARGET_LOG_PARTSZ_SET
-			local target_rootA_partsz_old=$TARGET_ROOTA_PARTSZ_SET
-			local target_rootB_partsz_old=$TARGET_ROOTB_PARTSZ_SET
-			display_target_partsizes_submenu \
-				$TARGET_BOOT_PARTSZ_SET \
-				$TARGET_LOG_PARTSZ_SET \
-				$TARGET_ROOTA_PARTSZ_SET \
-				$TARGET_ROOTB_PARTSZ_SET
-			rv=$?
-			if [ $rv -ne 0 ]; then
-				# Restore old partition sizes
-				store_target_partsize_selection ${U2UP_UPGRADE_CONF_DIR} "boot :${target_boot_partsz_old}"
-				store_target_partsize_selection ${U2UP_UPGRADE_CONF_DIR} "log :${target_log_partsz_old}"
-				store_target_partsize_selection ${U2UP_UPGRADE_CONF_DIR} "rootA :${target_rootA_partsz_old}"
-				store_target_partsize_selection ${U2UP_UPGRADE_CONF_DIR} "rootB :${target_rootB_partsz_old}"
-			fi
+#			local target_boot_partsz_old=$TARGET_BOOT_PARTSZ_SET
+#			local target_log_partsz_old=$TARGET_LOG_PARTSZ_SET
+#			local target_rootA_partsz_old=$TARGET_ROOTA_PARTSZ_SET
+#			local target_rootB_partsz_old=$TARGET_ROOTB_PARTSZ_SET
+#			display_target_partsizes_submenu \
+#				$TARGET_BOOT_PARTSZ_SET \
+#				$TARGET_LOG_PARTSZ_SET \
+#				$TARGET_ROOTA_PARTSZ_SET \
+#				$TARGET_ROOTB_PARTSZ_SET
+#			rv=$?
+#			if [ $rv -ne 0 ]; then
+#				# Restore old partition sizes
+#				store_target_partsize_selection ${U2UP_UPGRADE_CONF_DIR} "boot :${target_boot_partsz_old}"
+#				store_target_partsize_selection ${U2UP_UPGRADE_CONF_DIR} "log :${target_log_partsz_old}"
+#				store_target_partsize_selection ${U2UP_UPGRADE_CONF_DIR} "rootA :${target_rootA_partsz_old}"
+#				store_target_partsize_selection ${U2UP_UPGRADE_CONF_DIR} "rootB :${target_rootB_partsz_old}"
+#			fi
 			;;
 		4)
 			local target_hostname_old=$TARGET_HOSTNAME_SET
