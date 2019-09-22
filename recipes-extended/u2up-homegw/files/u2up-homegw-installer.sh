@@ -1297,7 +1297,7 @@ get_prepare_images_bundle() {
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
-	cd ${U2UP_IMAGES_DIR}
+	cd ${U2UP_IMAGES_DIR} >&2
 	if [ -f "${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}" ]; then
 		mv -f ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM} ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}_existing
 	fi
@@ -1315,7 +1315,7 @@ get_prepare_images_bundle() {
 			((msg_size+=1))
 		else
 			display_msg "${action_name}" "${msg_warn}" ${msg_size}
-			cd - 2> /dev/null
+			cd - >&2
 			return $rv
 		fi
 		rv=0
@@ -1333,7 +1333,7 @@ get_prepare_images_bundle() {
 			msg_warn="${msg_warn}\nUsing existing images bundle (checksum OK)!"
 			((msg_size+=1))
 			display_msg "${action_name}" "${msg_warn}" ${msg_size}
-			cd - 2> /dev/null
+			cd - >&2
 			return $rv
 		fi
 		msg_warn="${msg_warn}\nExisting images bundle checksum mismatch!"
@@ -1352,7 +1352,7 @@ get_prepare_images_bundle() {
 			mv -f ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}_existing ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
 		fi
 		display_msg "${action_name}" "${msg_warn}" ${msg_size}
-		cd - 2> /dev/null
+		cd - >&2
 		return $rv
 	fi
 	rm -f ${U2UP_IMAGES_BUNDLE_ARCHIVE}_existing
@@ -1365,23 +1365,23 @@ get_prepare_images_bundle() {
 	fi
 	((msg_size+=1))
 	display_msg "${action_name}" "${msg_warn}" ${msg_size}
-	cd - 2> /dev/null
+	cd - >&2
 	return $rv
 }
 
 check_images_bundle_content() {
 	local rv=1
 
-	cd ${U2UP_IMAGES_DIR}
+	cd ${U2UP_IMAGES_DIR} >&2
 	ln -sf ${U2UP_IMAGES_BUNDLE_ARCHIVE} $(cat ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM} | sed -e 's%^.* %%g')
 	sha256sum -c ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
 	rv=$?
 	if [ $rv -ne 0 ]; then
 		echo "Images bundle checksum mismatch!" >&2
-		cd - 2> /dev/null
+		cd - >&2
 		return $rv
 	fi
-	cd - 2> /dev/null
+	cd - >&2
 	tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_IDS_CONF_FILE}
 	rv=$?
 	if [ $rv -ne 0 ]; then
