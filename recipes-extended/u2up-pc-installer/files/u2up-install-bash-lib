@@ -1,9 +1,10 @@
 #!/bin/bash
 #
-# A dialog menu based u2up-pc-installer program
+# A u2up-yocto instalation/upgrade bash library
 #
 #set -xe
 
+U2UP_INSTALL_BASH_LIB_SOURCED=yes
 U2UP_CONF_DIR="/etc/u2up-conf.d"
 if [ ! -d "${U2UP_CONF_DIR}" ]; then
 	rm -rf $U2UP_CONF_DIR

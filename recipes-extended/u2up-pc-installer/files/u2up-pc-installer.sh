@@ -14,7 +14,17 @@ if [ ! -f "${U2UP_INSTALL_BASH_LIB}" ]; then
 	echo "Program terminated (missing: ${U2UP_INSTALL_BASH_LIB})!" >&2
 	exit 1
 fi
-source ${U2UP_INSTALL_BASH_LIB}
+if [ -z "${U2UP_INSTALL_BASH_LIB_SOURCED}" ]; then
+	source ${U2UP_INSTALL_BASH_LIB}
+fi
+U2UP_INSTALL_DIALOG_LIB="/lib/u2up/u2up-install-dialog-lib"
+if [ ! -f "${U2UP_INSTALL_DIALOG_LIB}" ]; then
+	echo "Program terminated (missing: ${U2UP_INSTALL_DIALOG_LIB})!" >&2
+	exit 1
+fi
+if [ -z "${U2UP_INSTALL_DIALOG_LIB_SOURCED}" ]; then
+	source ${U2UP_INSTALL_DIALOG_LIB}
+fi
 
 U2UP_IMAGES_DIR="/var/lib/u2up-images"
 U2UP_IMAGES_BUNDLE_NAME="u2up-homegw-bundle"
@@ -913,71 +923,6 @@ display_target_admin_submenu() {
 	done
 }
 
-display_net_config_submenu() {
-	local current_set=""
-	local current_item=""
-	local net_internal_ifname_current=""
-	local net_internal_addr_mask_current=${1:-"192.168.1.1/24"}
-	local net_internal_gw_current=${2:-"192.168.1.1"}
-	local net_dns_current=${3:-"192.168.1.1"}
-	local net_domains_current=${4:-"local.net"}
-	local rv=1
-
-	check_net_internal_ifname_set
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	local net_internal_ifname_current=$NET_INTERNAL_IFNAME_SET
-
-	while true; do
-		exec 3>&1
-		selection=$(IFS='|'; \
-		dialog \
-			--backtitle "${U2UP_BACKTITLE}" \
-			--title "Network configuration [${net_internal_ifname_current}]" \
-			--clear \
-			--default-item "$current_item" \
-			--cancel-label "Cancel" \
-			--extra-label "Change" \
-			--cr-wrap \
-			--inputmenu "\nPlease set:" $HEIGHT 0 12 \
-			"IP address/mask:" ${net_internal_addr_mask_current} \
-			"IP gateway:" ${net_internal_gw_current} \
-			"DNS:" ${net_dns_current} \
-			"Domains:" ${net_domains_current} \
-		2>&1 1>&3)
-		exit_status=$?
-		exec 3>&-
-
-		case $exit_status in
-		$DIALOG_CANCEL|$DIALOG_ESC)
-			clear
-			echo "Return from submenu." >&2
-			return 1
-			;;
-		esac
-
-		current_item="$(get_item_selection $selection)"
-		current_set="$(store_net_config_selection ${U2UP_CONF_DIR} $selection)"
-		if [ -n "$current_set" ]; then
-			#Resize pressed: set new dialog values
-			eval $current_set
-		else
-			#Ok
-			store_net_config_selection ${U2UP_CONF_DIR} "IP address/mask: ${net_internal_addr_mask_current}"
-			(( rv+=$? ))
-			store_net_config_selection ${U2UP_CONF_DIR} "IP gateway: ${net_internal_gw_current}"
-			(( rv+=$? ))
-			store_net_config_selection ${U2UP_CONF_DIR} "DNS: ${net_dns_current}"
-			(( rv+=$? ))
-			store_net_config_selection ${U2UP_CONF_DIR} "Domains: ${net_domains_current}"
-			(( rv+=$? ))
-			return $rv
-		fi
-	done
-}
-
 execute_net_reconfiguration() {
 	local TARGET_ROOT_PATH_PREFIX=$1
 	local NET_INTERNAL_IFNAME=""
@@ -1450,6 +1395,7 @@ main_loop () {
 			local net_dns_old=$NET_DNS_SET
 			local net_domains_old=$NET_DOMAINS_SET
 			display_net_config_submenu \
+				$U2UP_CONF_DIR \
 				$NET_INTERNAL_ADDR_MASK_SET \
 				$NET_INTERNAL_GW_SET \
 				$NET_DNS_SET \
