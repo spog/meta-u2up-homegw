@@ -44,29 +44,19 @@ if [ -z "${current_root_part_label_suffix}" ]; then
 	exit 1
 fi
 
-U2UP_UPGRADE_CONF_DIR="/var/lib/u2up-conf.d"
-rm -rf $U2UP_UPGRADE_CONF_DIR
-mkdir -p $U2UP_UPGRADE_CONF_DIR
-prepare_u2up_upgrade_configuration ${U2UP_UPGRADE_CONF_DIR}
+U2UP_INSTALL_CONF_DIR="/var/lib/u2up-conf.d"
+rm -rf $U2UP_INSTALL_CONF_DIR
+mkdir -p $U2UP_INSTALL_CONF_DIR
+prepare_u2up_upgrade_configuration ${U2UP_INSTALL_CONF_DIR}
 if [ $? -ne 0 ]; then
-	echo "Program terminated (failed to prepare upgrade configuration in: ${U2UP_UPGRADE_CONF_DIR})!" >&2
+	echo "Program terminated (failed to prepare upgrade configuration in: ${U2UP_INSTALL_CONF_DIR})!" >&2
 	exit 1
 fi
 
-# Use common partition to download images bundle:
-U2UP_IMAGES_DIR="/var/log/u2up-images"
-U2UP_IMAGES_BUNDLE_NAME="u2up-homegw-bundle"
-U2UP_IMAGES_BUNDLE_ARCHIVE=${U2UP_IMAGES_BUNDLE_NAME}.tar
-U2UP_IMAGES_BUNDLE_ARCHIVE_SUM=${U2UP_IMAGES_BUNDLE_NAME}.tar.sha256
-
-MACHINE="intel-corei7-64"
-
-U2UP_FS_IMAGE_ARCHIVE=u2up-homegw-image-full-cmdline
-#U2UP_KERNEL_MODULES_ARCHIVE=modules
-U2UP_KERNEL_IMAGE=bzImage
-U2UP_INITRD_IMAGE=microcode
-U2UP_EFI_FALLBACK_IMAGE=bootx64.efi
-
+if [ ! -f "${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE}" ]; then
+	echo "Program terminated (missing: ${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE})!" >&2
+	exit 1
+fi
 source ${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE}
 U2UP_CURRENT_ROOTFS_DTS=${U2UP_ROOTFS_DTS}
 DIALOG_CANCEL=1
@@ -136,7 +126,7 @@ display_keymap_submenu() {
 		;;
 	esac
 
-	store_keymap_selection $selection ${U2UP_UPGRADE_CONF_DIR}
+	store_keymap_selection $selection ${U2UP_INSTALL_CONF_DIR}
 	store_keymap_selection $selection
 	rv=$?
 	if [ $rv -eq 0 ]; then
@@ -183,7 +173,7 @@ display_target_disk_submenu() {
 		;;
 	esac
 
-	store_target_disk_selection $selection ${U2UP_UPGRADE_CONF_DIR}
+	store_target_disk_selection $selection ${U2UP_INSTALL_CONF_DIR}
 }
 
 display_net_internal_ifname_submenu() {
@@ -226,7 +216,7 @@ display_net_internal_ifname_submenu() {
 		;;
 	esac
 
-	store_net_internal_iface_selection $selection ${U2UP_UPGRADE_CONF_DIR}
+	store_net_internal_iface_selection $selection ${U2UP_INSTALL_CONF_DIR}
 }
 
 display_target_part_submenu() {
@@ -273,7 +263,7 @@ display_target_part_submenu() {
 		;;
 	esac
 
-	store_target_part_selection $selection ${U2UP_UPGRADE_CONF_DIR}
+	store_target_part_selection $selection ${U2UP_INSTALL_CONF_DIR}
 }
 
 display_target_boot_submenu() {
@@ -318,8 +308,8 @@ display_target_boot_submenu() {
 }
 
 check_target_disk_set() {
-	if [ -f "${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
-		source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
+	if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
+		source ${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 	else
 		TARGET_DISK_SET=""
 	fi
@@ -330,8 +320,8 @@ check_target_disk_set() {
 }
 
 check_net_internal_ifname_set() {
-	if [ -f "${U2UP_UPGRADE_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
-		source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
+	if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
+		source ${U2UP_INSTALL_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
 	else
 		NET_INTERNAL_IFNAME_SET=""
 	fi
@@ -342,8 +332,8 @@ check_net_internal_ifname_set() {
 }
 
 check_install_repo_config_set() {
-	if [ -f "${U2UP_UPGRADE_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
-		source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}
+	if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
+		source ${U2UP_INSTALL_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}
 	else
 		INSTALL_REPO_BASE_URL_SET=""
 	fi
@@ -354,8 +344,8 @@ check_install_repo_config_set() {
 }
 
 check_target_part_set() {
-	if [ -f "${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
-		source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
+	if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
+		source ${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 	else
 		TARGET_PART_SET=""
 	fi
@@ -366,8 +356,8 @@ check_target_part_set() {
 }
 
 check_target_part_sizes_set() {
-	if [ -f "${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
-		source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
+	if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
+		source ${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 	else
 		TARGET_BOOT_PARTSZ_SET=""
 	fi
@@ -397,8 +387,8 @@ check_target_disk_configuration() {
 }
 
 check_network_configuration() {
-	if [ -f "${U2UP_UPGRADE_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
-		source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
+	if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
+		source ${U2UP_INSTALL_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
 	else
 		NET_INTERNAL_IFNAME_SET=""
 	fi
@@ -541,8 +531,8 @@ check_current_target_disk_setup() {
 	local sectors_in_kib=0
 	(( sectors_in_kib=1024/$(cat /sys/block/${TARGET_DISK_SET}/queue/hw_sector_size) ))
 
-	if [ -f "${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
-		source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
+	if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
+		source ${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 	else
 		TARGET_BOOT_PARTSZ_SET=""
 	fi
@@ -783,15 +773,32 @@ proceed_target_repartition() {
 
 execute_target_repartition() {
 	local rv=0
-	check_target_disk_configuration
-	rv=$?
+	local msg=""
+
+	if [ $rv -eq 0 ]; then
+		check_target_disk_configuration
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Target disk configuration check failed!"
+		fi
+	fi
 	if [ $rv -eq 0 ]; then
 		check_current_target_disk_setup "Re-partition"
 		rv=$?
-		if [ $rv -eq 0 ]; then
-			proceed_target_repartition
-			rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Current target disk setup check failed!"
 		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		proceed_target_repartition
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Target disk repartition failed!"
+		fi
+	fi
+
+	if [ $rv -ne 0 ]; then
+		echo "${msg}" >&2
 	fi
 	return $rv
 }
@@ -842,16 +849,16 @@ display_target_partsizes_submenu() {
 		esac
 
 		current_item="$(get_item_selection $selection)"
-		current_set="$(store_target_partsize_selection ${U2UP_UPGRADE_CONF_DIR} $selection)"
+		current_set="$(store_target_partsize_selection ${U2UP_INSTALL_CONF_DIR} $selection)"
 		if [ -n "$current_set" ]; then
 			#Resize pressed: set new dialog values
 			eval $current_set
 		else
 			#Ok
-			store_target_partsize_selection ${U2UP_UPGRADE_CONF_DIR} "boot :${target_boot_partsz_current}"
-			store_target_partsize_selection ${U2UP_UPGRADE_CONF_DIR} "log :${target_log_partsz_current}"
-			store_target_partsize_selection ${U2UP_UPGRADE_CONF_DIR} "rootA :${target_rootA_partsz_current}"
-			store_target_partsize_selection ${U2UP_UPGRADE_CONF_DIR} "rootB :${target_rootB_partsz_current}"
+			store_target_partsize_selection ${U2UP_INSTALL_CONF_DIR} "boot :${target_boot_partsz_current}"
+			store_target_partsize_selection ${U2UP_INSTALL_CONF_DIR} "log :${target_log_partsz_current}"
+			store_target_partsize_selection ${U2UP_INSTALL_CONF_DIR} "rootA :${target_rootA_partsz_current}"
+			store_target_partsize_selection ${U2UP_INSTALL_CONF_DIR} "rootB :${target_rootB_partsz_current}"
 			execute_target_repartition
 			return $?
 		fi
@@ -890,13 +897,13 @@ display_target_hostname_submenu() {
 		esac
 
 		current_item="$(get_item_selection $selection)"
-		current_set="$(store_target_hostname_selection ${U2UP_UPGRADE_CONF_DIR} $selection)"
+		current_set="$(store_target_hostname_selection ${U2UP_INSTALL_CONF_DIR} $selection)"
 		if [ -n "$current_set" ]; then
 			#Resize pressed: set new dialog values
 			eval $current_set
 		else
 			#Ok
-			store_target_hostname_selection ${U2UP_UPGRADE_CONF_DIR} "Hostname: ${target_hostname_current}"
+			store_target_hostname_selection ${U2UP_INSTALL_CONF_DIR} "Hostname: ${target_hostname_current}"
 			(( rv+=$? ))
 			return $rv
 		fi
@@ -935,13 +942,13 @@ display_target_admin_submenu() {
 		esac
 
 		current_item="$(get_item_selection $selection)"
-		current_set="$(store_target_admin_selection ${U2UP_UPGRADE_CONF_DIR} $selection)"
+		current_set="$(store_target_admin_selection ${U2UP_INSTALL_CONF_DIR} $selection)"
 		if [ -n "$current_set" ]; then
 			#Resize pressed: set new dialog values
 			eval $current_set
 		else
 			#Ok
-			store_target_admin_selection ${U2UP_UPGRADE_CONF_DIR} "Admin name: ${target_admin_name_current}"
+			store_target_admin_selection ${U2UP_INSTALL_CONF_DIR} "Admin name: ${target_admin_name_current}"
 			(( rv+=$? ))
 			return $rv
 		fi
@@ -964,8 +971,8 @@ execute_net_reconfiguration() {
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
-	if [ -f "${U2UP_UPGRADE_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
-		source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
+	if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
+		source ${U2UP_INSTALL_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
 	fi
 	cat > ${TARGET_ROOT_PATH_PREFIX}etc/systemd/network/10-internal-static.network << EOF
 [Match]
@@ -974,7 +981,7 @@ Name=${NET_INTERNAL_IFNAME_SET}
 [Network]
 Address=${NET_INTERNAL_ADDR_MASK_SET}
 Gateway=${NET_INTERNAL_GW_SET}
-DNS=${NET_DNS_SET}
+DNS=127.0.0.1
 Domains=${NET_DOMAINS_SET}
 EOF
 	return $rv
@@ -1018,213 +1025,90 @@ display_install_repo_config_submenu() {
 		esac
 
 		current_item="$(get_item_selection $selection)"
-		current_set="$(store_install_repo_selection ${U2UP_UPGRADE_CONF_DIR} $selection)"
+		current_set="$(store_install_repo_selection ${U2UP_INSTALL_CONF_DIR} $selection)"
 		if [ -n "$current_set" ]; then
 			#Resize pressed: set new dialog values
 			eval $current_set
 		else
 			#Ok
-			store_install_repo_selection ${U2UP_UPGRADE_CONF_DIR} "Base URL: ${install_repo_base_url_current}"
+			store_install_repo_selection ${U2UP_INSTALL_CONF_DIR} "Base URL: ${install_repo_base_url_current}"
 			(( rv+=$? ))
 			return $rv
 		fi
 	done
 }
 
-check_create_filesystems() {
-	local TARGET_DISK_SET=""
-	local TARGET_PART_SET=""
-	local fstype=""
-	local rv=1
+extract_bundle_images() {
+	local TARGET_DISK_SET=$1
+	local TARGET_PART_SET=$2
+	local root_part_suffix=$3
+	local msg=""
+	local rv=0
 
-	if [ -f "${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
-		source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
+	if [ $rv -eq 0 ] && [ -z "$TARGET_DISK_SET" ]; then
+		msg="Target disk not defined!"
+		rv=1
 	fi
-	if [ -z "$TARGET_DISK_SET" ] || [ -z "TARGET_PART_SET" ]; then
-		return $rv
+	if [ $rv -eq 0 ] && [ -z "$TARGET_PART_SET" ]; then
+		msg="Target disk paritition not defined!"
+		rv=1
 	fi
-	# Installation partition:
-	echo "Allways re-create EXT4 filesystem on installation partition /dev/$TARGET_PART_SET:" >&2
-	umount -f /mnt >&2
-	mkfs.ext4 -F /dev/$TARGET_PART_SET >&2
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		return $rv
+	if [ $rv -eq 0 ] && [ -z "$root_part_suffix" ]; then
+		msg="Target root_part_suffix not defined!"
+		rv=1
 	fi
-	echo -e "OK!\n" >&2
-	# Boot partition:
-	echo "Check / re-create VFAT filesystem on \"boot\" partition /dev/${TARGET_DISK_SET}1:" >&2
-	fstype="$(lsblk -fr /dev/${TARGET_DISK_SET}1 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
-	if [ -z "$fstype" ] || [ "$fstype" != "vfat" ]; then
-		echo "Recreate:" >&2
-		mkfs.vfat -F /dev/${TARGET_DISK_SET}1 >&2
+	if [ $rv -eq 0 ]; then
+		echo "Mounting installation root filesystem..." >&2
+		umount -f $U2UP_INSTALL_ROOT_MNT >&2
+		mount /dev/$TARGET_PART_SET $U2UP_INSTALL_ROOT_MNT >&2
 		rv=$?
 		if [ $rv -ne 0 ]; then
-			return $rv
+			msg="Failed to mount installation root filesystem!"
 		fi
 	fi
-	echo -e "OK!\n" >&2
-	# Log partition:
-	echo "Check / re-create EXT4 filesystem on \"log\" partition /dev/${TARGET_DISK_SET}1:" >&2
-	fstype="$(lsblk -fr /dev/${TARGET_DISK_SET}2 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
-	if [ -z "$fstype" ] || [ "$fstype" != "ext4" ]; then
-		echo "Recreate:" >&2
-		mkfs.ext4 -F /dev/${TARGET_DISK_SET}2 >&2
+	if [ $rv -eq 0 ]; then
+		echo "Extracting installation root filesystem archive..." >&2
+		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IMAGE_ROOTFS_NAME}-${MACHINE}.tar.gz | tar xz -C $U2UP_INSTALL_ROOT_MNT >&2
 		rv=$?
 		if [ $rv -ne 0 ]; then
-			return $rv
+			msg="Failed to extract installation root filesystem archive!"
 		fi
 	fi
-	echo -e "OK!\n" >&2
-	# RootA partition:
-	echo "Check / re-create EXT4 filesystem on \"rootA\" partition /dev/${TARGET_DISK_SET}1:" >&2
-	fstype="$(lsblk -fr /dev/${TARGET_DISK_SET}3 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
-	if [ -z "$fstype" ] || [ "$fstype" != "ext4" ]; then
-		echo "Recreate:" >&2
-		mkfs.ext4 -F /dev/${TARGET_DISK_SET}3 >&2
+	if [ $rv -eq 0 ]; then
+		echo "Extracting U2UP_IDS..." >&2
+		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --overwrite -C ${U2UP_INSTALL_CONF_DIR} ${U2UP_IDS_CONF_FILE} >&2
 		rv=$?
 		if [ $rv -ne 0 ]; then
-			return $rv
+			msg="Failed to extract U2UP_IDS!"
 		fi
 	fi
-	echo -e "OK!\n" >&2
-	# RootB partition:
-	echo "Check / re-create EXT4 filesystem on \"rootB\" partition /dev/${TARGET_DISK_SET}1:" >&2
-	fstype="$(lsblk -fr /dev/${TARGET_DISK_SET}4 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
-	if [ -z "$fstype" ] || [ "$fstype" != "ext4" ]; then
-		echo "Recreate:" >&2
-		mkfs.ext4 -F /dev/${TARGET_DISK_SET}4 >&2
-		rv=$?
-		if [ $rv -ne 0 ]; then
-			return $rv
-		fi
-	fi
-	echo -e "OK!\n" >&2
-	rv=0
-	return $rv
-}
-
-
-populate_root_filesystem() {
-	local TARGET_DISK_SET=""
-	local TARGET_PART_SET=""
-	local root_part_suffix=""
-	local root_part_uuid=""
-	local rv=1
-
-	if [ -f "${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
-		source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
-	fi
-	if [ -z "$TARGET_DISK_SET" ] || [ -z "TARGET_PART_SET" ]; then
-		return $rv
-	fi
-	root_part_uuid="$(lsblk -ir -o NAME,PARTUUID /dev/$TARGET_PART_SET | grep -v "NAME" | sed 's/[a-z,0-9]* //')"
-	if [ -z "$root_part_uuid" ]; then
-		return $rv
-	fi
-	if [ "${TARGET_PART_SET}" = "${TARGET_DISK_SET}3" ]; then
-		root_part_suffix="A"
-	elif [ "${TARGET_PART_SET}" = "${TARGET_DISK_SET}4" ]; then
-		root_part_suffix="B"
-	else
-		return $rv
-	fi
-
-	echo "Mounting root filesystem:" >&2
-	umount -f /mnt >&2
-	mount /dev/$TARGET_PART_SET /mnt >&2
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	echo "Extracting root filesystem archive:" >&2
-	tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz | tar xz -C /mnt >&2
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-#	echo "Extracting kernel modules archive:" >&2
-#	set -x
-#	tar xvf ${U2UP_IMAGES_DIR}${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_KERNEL_MODULES_IMAGE_ARCHIVE}-${MACHINE}.tgz | tar xz -C /mnt >&2
-#	rv=$?
-#	if [ $rv -ne 0 ]; then
-#		return $rv
-#	fi
-	echo "Extracting U2UP_IDS:" >&2
-	tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --overwrite -C ${U2UP_UPGRADE_CONF_DIR} ${U2UP_IDS_CONF_FILE} >&2
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	echo "Populate \"u2up-config.d\" of the installed system:" >&2
-	populate_u2up_configurations "/mnt" "${U2UP_UPGRADE_CONF_DIR}"
-	((rv+=$?))
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	echo "Configure target keyboard mapping:" >&2
-	enable_keymap_selection 1 "/mnt"
-	((rv+=$?))
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	echo "Configure \"fstab\" for common boot partition:" >&2
-	echo "/dev/${TARGET_DISK_SET}1 /boot vfat umask=0077 0 1" >> /mnt/etc/fstab
-	((rv+=$?))
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	echo "Configure \"fstab\" for common logging partition:" >&2
-	echo "/dev/${TARGET_DISK_SET}2 /var/log ext4 errors=remount-ro 0 1" >> /mnt/etc/fstab
-	((rv+=$?))
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	echo "Done configuring target disk and partitions:" >&2
-	set_target_done_for /mnt/${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE} 1
-	((rv+=$?))
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	echo "Configure \"internal network\" of the installed system:" >&2
-	execute_net_reconfiguration "/mnt/"
-	((rv+=$?))
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	echo "Prepare boot images:" >&2
-	mkdir -p /boot/EFI/BOOT
-	mkdir -p /boot/loader/entries
-	tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin >&2
-	((rv+=$?))
-	mv /boot/${U2UP_KERNEL_IMAGE}-${MACHINE}.bin /boot/bzImage${root_part_suffix} >&2
-	((rv+=$?))
-	tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot ${U2UP_INITRD_IMAGE}.cpio >&2
-	((rv+=$?))
-	mv /boot/${U2UP_INITRD_IMAGE}.cpio /boot/microcode${root_part_suffix}.cpio >&2
-	((rv+=$?))
-	if [ ! -f "/boot/EFI/BOOT/bootx64.efi" ]; then
-		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot/EFI/BOOT systemd-${U2UP_EFI_FALLBACK_IMAGE} >&2
+	if [ $rv -eq 0 ]; then
+		echo "Extracting installation boot images..." >&2
+		mkdir -p /boot/EFI/BOOT
+		mkdir -p /boot/loader/entries
+		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin >&2
 		((rv+=$?))
-		mv /boot/EFI/BOOT/systemd-${U2UP_EFI_FALLBACK_IMAGE} /boot/EFI/BOOT/${U2UP_EFI_FALLBACK_IMAGE} >&2
+		mv /boot/${U2UP_KERNEL_IMAGE}-${MACHINE}.bin /boot/bzImage${root_part_suffix} >&2
 		((rv+=$?))
+		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot ${U2UP_INITRD_IMAGE}.cpio >&2
+		((rv+=$?))
+		mv /boot/${U2UP_INITRD_IMAGE}.cpio /boot/microcode${root_part_suffix}.cpio >&2
+		((rv+=$?))
+		if [ ! -f "/boot/EFI/BOOT/bootx64.efi" ]; then
+			tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot/EFI/BOOT systemd-${U2UP_EFI_FALLBACK_IMAGE} >&2
+			((rv+=$?))
+			mv /boot/EFI/BOOT/systemd-${U2UP_EFI_FALLBACK_IMAGE} /boot/EFI/BOOT/${U2UP_EFI_FALLBACK_IMAGE} >&2
+			((rv+=$?))
+		fi
+		if [ $rv -ne 0 ]; then
+			msg="Failed to extract installation boot images!"
+		fi
 	fi
-	if [ $rv -ne 0 ]; then
-		return $rv
+	if [ $rv -eq 0 ]; then
+		msg="Extracting installation images successfully finished!"
 	fi
-	echo "Create new boot  \"${root_part_label}\" menu:" >&2
-	source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_IDS_CONF_FILE}
-	echo "title ${root_part_label} (${U2UP_ROOTFS_DTS})" > /boot/loader/entries/${root_part_label}.conf
-	((rv+=$?))
-	echo "linux /bzImage${root_part_suffix}" >> /boot/loader/entries/${root_part_label}.conf
-	((rv+=$?))
-	echo "options label=${root_part_label} root=PARTUUID=${root_part_uuid} rootwait rootfstype=ext4 console=tty0 ttyprintk.tioccons=1" >> /boot/loader/entries/${root_part_label}.conf
-	((rv+=$?))
-	echo "initrd /microcode${root_part_suffix}.cpio" >> /boot/loader/entries/${root_part_label}.conf
-	((rv+=$?))
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
+
+	echo "${msg}" >&2
 	return $rv
 }
 
@@ -1235,7 +1119,7 @@ get_prepare_images_bundle() {
 	local action_name="Get new images bundle"
 	local INSTALL_REPO_BASE_URL=""
 
-	source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}
+	source ${U2UP_INSTALL_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}
 	INSTALL_REPO_BASE_URL=$INSTALL_REPO_BASE_URL_SET
 	mkdir -p ${U2UP_IMAGES_DIR}
 	rv=$?
@@ -1271,7 +1155,7 @@ get_prepare_images_bundle() {
 	rm -f ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}_existing
 	ln -sf ${U2UP_IMAGES_BUNDLE_ARCHIVE} $(cat ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM} | sed -e 's%^.* %%g')
 	if [ -f "${U2UP_IMAGES_BUNDLE_ARCHIVE}" ]; then
-		echo "Trying existing images bundle!" >&2
+		echo "Testing existing images bundle!" >&2
 		sha256sum -c ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
 		rv=$?
 		if [ $rv -eq 0 ]; then
@@ -1314,96 +1198,136 @@ get_prepare_images_bundle() {
 	return $rv
 }
 
-check_images_bundle_content() {
-	local rv=1
-
-	cd ${U2UP_IMAGES_DIR} >&2
-	ln -sf ${U2UP_IMAGES_BUNDLE_ARCHIVE} $(cat ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM} | sed -e 's%^.* %%g')
-	sha256sum -c ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		echo "Images bundle checksum mismatch!" >&2
-		cd - >&2
-		return $rv
-	fi
-	cd - >&2
-	tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_IDS_CONF_FILE}
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		echo "Images bundle not containing: ${U2UP_IDS_CONF_FILE}!" >&2
-		return $rv
-	fi
-	tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		echo "Images bundle not containing: ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz!" >&2
-		return $rv
-	fi
-	tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		echo "Images bundle not containing: ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin!" >&2
-		return $rv
-	fi
-	tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_INITRD_IMAGE}.cpio
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		echo "Images bundle not containing: ${U2UP_INITRD_IMAGE}.cpio!" >&2
-		return $rv
-	fi
-	tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} systemd-${U2UP_EFI_FALLBACK_IMAGE}
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		echo "Images bundle not containing: systemd-${U2UP_EFI_FALLBACK_IMAGE}!" >&2
-		return $rv
-	fi
-	return $rv
-}
-
 proceed_target_install() {
-	local rv=1
+	local TARGET_DISK_SET=""
+	local TARGET_PART_SET=""
+	local root_part_suffix=""
+	local msg=""
+	local rv=0
 
-	check_images_bundle_content
-	rv=$?
+	if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
+		source ${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
+	fi
+	if [ $rv -eq 0 ] && [ -z "$TARGET_DISK_SET" ]; then
+		msg="Target disk not defined!"
+		rv=1
+	fi
+	if [ $rv -eq 0 ] && [ -z "$TARGET_PART_SET" ]; then
+		msg="Target disk paritition not defined!"
+		rv=1
+	fi
+	if [ $rv -eq 0 ]; then
+		root_part_suffix="$(get_root_label_suffix ${TARGET_DISK_SET} ${TARGET_PART_SET})"
+		if [ -z "$root_part_suffix" ]; then
+			msg="Target root_part_suffix not defined!"
+			rv=1
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		check_create_filesystems $TARGET_DISK_SET $TARGET_PART_SET
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed checking / creating filesystems!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		mount_installation_filesystem $TARGET_DISK_SET $TARGET_PART_SET $root_part_suffix
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed mounting installation filesystem!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		extract_rootfs_from_images_bundle $TARGET_DISK_SET $TARGET_PART_SET $root_part_suffix
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed extracting root filesystem archive from images bundle!"
+		fi
+	fi
+#	if [ $rv -eq 0 ]; then
+#		extract_bundle_images $TARGET_DISK_SET $TARGET_PART_SET $root_part_suffix
+#		rv=$?
+#		if [ $rv -ne 0 ]; then
+#			msg="Failed to extract bundle images!"
+#		fi
+#	fi
+#spog - Currently not needed, because images-bundle is kept on the common "log" partition!
+#	if [ $rv -eq 0 ]; then
+#		echo "Populating the installed system with \"u2up-images-bundle\"..." >&2
+#		populate_u2up_images_bundle "${U2UP_INSTALL_ROOT_MNT}" "${U2UP_IMAGES_DIR}" "${U2UP_IMAGES_BUNDLE_NAME}"
+#		rv=$?
+#		if [ $rv -ne 0 ]; then
+#			msg="Failed populating the installed system with \"u2up-images-bundle\"!"
+#		fi
+#	fi
+	if [ $rv -eq 0 ]; then
+		echo "Populating the installed system with \"u2up-configurations\"..." >&2
+		populate_u2up_configurations "${U2UP_INSTALL_ROOT_MNT}" "${U2UP_INSTALL_CONF_DIR}"
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed populating the installed system with \"u2up-configurations\"!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		update_filesystem_chrooted
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed updating installed system (chrooted)!"
+		fi
+	fi
 	if [ $rv -ne 0 ]; then
-		echo "press enter to continue..." >&2
-		read
-		display_result "Installation" "Check images bundle content failed!"
-		return $rv
+		echo "${msg}" >&2
 	fi
 
-	check_create_filesystems
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		echo "press enter to continue..." >&2
-		read
-		display_result "Installation" "Failed to check / create filesystems!"
-		return $rv
-	fi
-
-	populate_root_filesystem
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		echo "press enter to continue..." >&2
-		read
-		display_result "Installation" "Failed to populate root filesystem!"
-		return $rv
-	fi
-
-	echo "press enter to continue..." >&2
-	read
-	display_result "Installation" "Installation successfully finished!"
 	return $rv
 }
 
 execute_target_install() {
-	check_target_configurations
-	if [ $? -eq 0 ]; then
-		check_current_target_disk_setup "Installation"
-		if [ $? -eq 0 ]; then
-			proceed_target_install
+	local rv=0
+	local msg=""
+
+	echo "Starting target installation..." >&2
+	if [ $rv -eq 0 ]; then
+		echo "Checking target configurations..." >&2
+		check_target_configurations
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Target configurations check failed!"
 		fi
 	fi
+	if [ $rv -eq 0 ]; then
+		echo "Checking current target disk setup..." >&2
+		check_current_target_disk_setup "Installation"
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Current target disk setup check failed!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Checking installation images bundle initial content..." >&2
+		check_images_bundle_initial_content
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Images bundle initial content check failed!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Proceeding target installation..." >&2
+		proceed_target_install
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Proceeding target installation failed!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		msg="Target installation successfully finished!"
+	fi
+
+	echo "${msg}" >&2
+	echo "press enter to continue..." >&2
+	read
+	display_result "Installation" "${msg}"
+	return $rv
 }
 
 main_loop () {
@@ -1428,32 +1352,32 @@ main_loop () {
 	local INSTALL_REPO_BASE_URL=""
 
 	while true; do
-		if [ -f "${U2UP_UPGRADE_CONF_DIR}/${U2UP_KEYMAP_CONF_FILE}" ]; then
-			source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_KEYMAP_CONF_FILE}
+		if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_KEYMAP_CONF_FILE}" ]; then
+			source ${U2UP_INSTALL_CONF_DIR}/${U2UP_KEYMAP_CONF_FILE}
 		fi
-		if [ -f "${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
-			source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
+		if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
+			source ${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 		fi
 		root_part_label="$(get_root_label ${TARGET_DISK_SET} ${TARGET_PART_SET})"
 		if [ -z "${root_part_label}" ]; then
 			display_result "ERROR" "Program interrupted (unknown root part label)!"
 			exit 1
 		fi
-		if [ -f "${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE}" ]; then
-			source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE}
+		if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE}" ]; then
+			source ${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE}
 		fi
-		if [ -f "${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_ADMIN_CONF_FILE}" ]; then
-			source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_TARGET_ADMIN_CONF_FILE}
+		if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_ADMIN_CONF_FILE}" ]; then
+			source ${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_ADMIN_CONF_FILE}
 		fi
-		if [ -f "${U2UP_UPGRADE_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
-			source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
+		if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
+			source ${U2UP_INSTALL_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
 		fi
 		net_internal_mac=""
 		if [ -n "${NET_INTERNAL_IFNAME_SET}" ]; then
 			net_internal_mac="$(ip link show dev $NET_INTERNAL_IFNAME_SET | grep "link\/ether" | sed 's/ *link\/ether *//' | sed 's/ .*//')"
 		fi
-		if [ -f "${U2UP_UPGRADE_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
-			source ${U2UP_UPGRADE_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}
+		if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
+			source ${U2UP_INSTALL_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}
 		fi
 
 		exec 3>&1
@@ -1478,7 +1402,7 @@ main_loop () {
 			"8" "Installation packages repo [${INSTALL_REPO_BASE_URL_SET}]" \
 			"9" "Installation partition [${TARGET_PART_SET} - ${root_part_label}]" \
 			"10" "Get new images bundle" \
-			"11" "Install (${U2UP_INSTALL_ROOTFS_DTS})" \
+			"11" "Install (${U2UP_IMAGE_ROOTFS_DTS})" \
 			"12" "Default boot [${default_boot_label}]" \
 			"13" "Reboot" \
 		2>&1 >&3)
@@ -1525,10 +1449,10 @@ main_loop () {
 #			rv=$?
 #			if [ $rv -ne 0 ]; then
 #				# Restore old partition sizes
-#				store_target_partsize_selection ${U2UP_UPGRADE_CONF_DIR} "boot :${target_boot_partsz_old}"
-#				store_target_partsize_selection ${U2UP_UPGRADE_CONF_DIR} "log :${target_log_partsz_old}"
-#				store_target_partsize_selection ${U2UP_UPGRADE_CONF_DIR} "rootA :${target_rootA_partsz_old}"
-#				store_target_partsize_selection ${U2UP_UPGRADE_CONF_DIR} "rootB :${target_rootB_partsz_old}"
+#				store_target_partsize_selection ${U2UP_INSTALL_CONF_DIR} "boot :${target_boot_partsz_old}"
+#				store_target_partsize_selection ${U2UP_INSTALL_CONF_DIR} "log :${target_log_partsz_old}"
+#				store_target_partsize_selection ${U2UP_INSTALL_CONF_DIR} "rootA :${target_rootA_partsz_old}"
+#				store_target_partsize_selection ${U2UP_INSTALL_CONF_DIR} "rootB :${target_rootB_partsz_old}"
 #			fi
 			;;
 		4)
@@ -1551,7 +1475,7 @@ main_loop () {
 			local net_dns_old=$NET_DNS_SET
 			local net_domains_old=$NET_DOMAINS_SET
 			display_net_config_submenu \
-				$U2UP_UPGRADE_CONF_DIR \
+				$U2UP_INSTALL_CONF_DIR \
 				$NET_INTERNAL_ADDR_MASK_SET \
 				$NET_INTERNAL_GW_SET \
 				$NET_DNS_SET \
@@ -1560,16 +1484,16 @@ main_loop () {
 			if [ $rv -ne 0 ]; then
 				# Restore old network configuration
 				if [ -n "${net_internal_addr_mask_old}" ]; then
-					store_net_config_selection ${U2UP_UPGRADE_CONF_DIR} "IP address/mask: ${net_internal_addr_mask_old}"
+					store_net_config_selection ${U2UP_INSTALL_CONF_DIR} "IP address/mask: ${net_internal_addr_mask_old}"
 				fi
 				if [ -n "${net_internal_gw_old}" ]; then
-					store_net_config_selection ${U2UP_UPGRADE_CONF_DIR} "IP gateway: ${net_internal_gw_old}"
+					store_net_config_selection ${U2UP_INSTALL_CONF_DIR} "IP gateway: ${net_internal_gw_old}"
 				fi
 				if [ -n "${net_dns_old}" ]; then
-					store_net_config_selection ${U2UP_UPGRADE_CONF_DIR} "DNS: ${net_dns_old}"
+					store_net_config_selection ${U2UP_INSTALL_CONF_DIR} "DNS: ${net_dns_old}"
 				fi
 				if [ -n "${net_domains_old}" ]; then
-					store_net_config_selection ${U2UP_UPGRADE_CONF_DIR} "Domains: ${net_domains_old}"
+					store_net_config_selection ${U2UP_INSTALL_CONF_DIR} "Domains: ${net_domains_old}"
 				fi
 			else
 				execute_net_reconfiguration "/"
@@ -1583,7 +1507,7 @@ main_loop () {
 			if [ $rv -ne 0 ]; then
 				# Restore old installation packages repo configuration
 				if [ -n "${install_repo_base_url_old}" ]; then
-					store_install_repo_selection ${U2UP_UPGRADE_CONF_DIR} "Base URL: ${install_repo_base_url_old}"
+					store_install_repo_selection ${U2UP_INSTALL_CONF_DIR} "Base URL: ${install_repo_base_url_old}"
 				fi
 			fi
 			;;
@@ -1597,12 +1521,7 @@ main_loop () {
 			if [ $? -eq 0 ]; then
 				get_prepare_images_bundle
 				if [ $? -eq 0 ]; then
-					check_images_bundle_content
-					if [ $? -eq 0 ]; then
-						U2UP_INSTALL_ROOTFS_DTS=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} | grep U2UP_ROOTFS_DTS | sed 's/U2UP_ROOTFS_DTS\=//')
-					else
-						U2UP_INSTALL_ROOTFS_DTS=""
-					fi
+					check_images_bundle_initial_content
 				fi
 			fi
 
@@ -1628,12 +1547,7 @@ main_loop () {
 	done
 }
 
-check_images_bundle_content
-if [ $? -eq 0 ]; then
-	U2UP_INSTALL_ROOTFS_DTS=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} | grep U2UP_ROOTFS_DTS | sed 's/U2UP_ROOTFS_DTS\=//')
-else
-	U2UP_INSTALL_ROOTFS_DTS=""
-fi
+check_images_bundle_initial_content
 
 # Call main function:
 main_loop

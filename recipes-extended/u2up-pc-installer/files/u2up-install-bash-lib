@@ -19,6 +19,25 @@ U2UP_TARGET_ADMIN_CONF_FILE="40-admin-conf"
 U2UP_NETWORK_CONF_FILE="50-network-conf"
 U2UP_INSTALL_REPO_CONF_FILE="60-install_repo-conf"
 
+# Use common partition to download images bundle:
+U2UP_IMAGES_DIR="/var/log/u2up-images"
+U2UP_IMAGES_LOCAL_DIR="/var/lib/u2up-images"
+
+U2UP_IMAGES_BUNDLE_NAME="u2up-homegw-bundle"
+U2UP_IMAGES_BUNDLE_ARCHIVE=${U2UP_IMAGES_BUNDLE_NAME}.tar
+U2UP_IMAGES_BUNDLE_ARCHIVE_SUM=${U2UP_IMAGES_BUNDLE_NAME}.tar.sha256
+
+#U2UP_FS_IMAGE_ARCHIVE=u2up-homegw-image-full-cmdline
+U2UP_IMAGE_ROOTFS_NAME=""
+U2UP_IMAGE_ROOTFS_DTS=""
+#U2UP_KERNEL_MODULES_ARCHIVE=modules
+U2UP_KERNEL_IMAGE=bzImage
+U2UP_INITRD_IMAGE=microcode
+U2UP_EFI_FALLBACK_IMAGE=bootx64.efi
+
+MACHINE="intel-corei7-64"
+
+U2UP_INSTALL_ROOT_MNT="/mnt"
 U2UP_TEMP_DIR="/tmp/u2up-temp"
 if [ ! -d "${U2UP_TEMP_DIR}" ]; then
 	rm -rf $U2UP_TEMP_DIR
@@ -75,6 +94,7 @@ set_default_boot() {
 }
 
 get_current_target_disk() {
+	local TARGET_DISK_SET=""
 	if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
 		source $U2UP_CONF_DIR/$U2UP_TARGET_DISK_CONF_FILE
 		echo -n "${TARGET_DISK_SET}"
@@ -82,6 +102,7 @@ get_current_target_disk() {
 }
 
 get_current_target_part() {
+	local TARGET_PART_SET=""
 	if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
 		source $U2UP_CONF_DIR/$U2UP_TARGET_DISK_CONF_FILE
 		echo -n "${TARGET_PART_SET}"
@@ -536,6 +557,43 @@ enable_net_config_selection() {
 	return $rv
 }
 
+execute_net_reconfiguration() {
+	local root_path_prefix=${1:-"/"}
+	local conf_dir=${2:-${U2UP_CONF_DIR}}
+	local NET_INTERNAL_IFNAME=""
+	local NET_INTERNAL_ADDR_MASK=""
+	local NET_INTERNAL_GW=""
+	local NET_DNS=""
+	local NET_DOMAINS=""
+	local rv=0
+
+	if [ ! -f "${root_path_prefix}${conf_dir}/${U2UP_NETWORK_CONF_FILE}" ]; then
+		return 1
+	fi
+	source ${root_path_prefix}${conf_dir}/${U2UP_NETWORK_CONF_FILE}
+	if \
+		[ -z "$NET_INTERNAL_IFNAME_SET" ] || \
+		[ -z "$NET_INTERNAL_ADDR_MASK_SET" ] || \
+		[ -z "$NET_INTERNAL_GW_SET" ] || \
+		[ -z "$NET_DNS_SET" ] || \
+		[ -z "$NET_DOMAINS_SET" ];
+	then
+		return 1
+	fi
+	cat > /etc/systemd/network/10-internal-static.network << EOF
+[Match]
+Name=${NET_INTERNAL_IFNAME_SET}
+
+[Network]
+Address=${NET_INTERNAL_ADDR_MASK_SET}
+Gateway=${NET_INTERNAL_GW_SET}
+DNS=${NET_DNS_SET}
+Domains=${NET_DOMAINS_SET}
+EOF
+	rv=$?
+	return $rv
+}
+
 store_install_repo_selection() {
 	local rv=1
 	local var_install_repo_set=""
@@ -606,6 +664,9 @@ enable_install_repo_selection() {
 prepare_u2up_upgrade_configuration() {
 	local rv=0
 	local conf_dir=$1
+	local TARGET_DISK_SET=""
+	local TARGET_PART_SET=""
+	local upgrade_disk_part
 
 	if [ -z "${conf_dir}" ]; then
 		return 1
@@ -651,17 +712,455 @@ prepare_u2up_upgrade_configuration() {
 	return $rv
 }
 
+check_create_filesystems() {
+	local TARGET_DISK_SET=$1
+	local TARGET_PART_SET=$2
+	local fstype=""
+	local msg=""
+	local rv=0
+
+	if [ $rv -eq 0 ] && [ -z "$TARGET_DISK_SET" ]; then
+		msg="Target disk not defined!"
+		rv=1
+	fi
+	if [ $rv -eq 0 ] && [ -z "$TARGET_PART_SET" ]; then
+		msg="Target disk paritition not defined!"
+		rv=1
+	fi
+	if [ $rv -eq 0 ]; then
+		# Installation partition:
+		echo "Allways re-create EXT4 filesystem on installation partition /dev/$TARGET_PART_SET:" >&2
+		umount -f $U2UP_INSTALL_ROOT_MNT >&2
+		mkfs.ext4 -F /dev/$TARGET_PART_SET >&2
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to re-create EXT4 filesystem on installation partition /dev/$TARGET_PART_SET!"
+#		else
+#			echo -e "OK!\n" >&2
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		# Boot partition:
+		echo "Check / re-create VFAT filesystem on \"boot\" partition /dev/${TARGET_DISK_SET}1:" >&2
+		fstype="$(lsblk -fr /dev/${TARGET_DISK_SET}1 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
+		if [ -z "$fstype" ] || [ "$fstype" != "vfat" ]; then
+#			echo "Recreate:" >&2
+			mkfs.vfat -F /dev/${TARGET_DISK_SET}1 >&2
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				msg="Failed to check / re-create VFAT filesystem on \"boot\" partition /dev/${TARGET_DISK_SET}1!"
+#			else
+#				echo -e "Re-create OK!\n" >&2
+			fi
+#		else
+#			echo -e "Check OK!\n" >&2
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		# Log partition:
+		echo "Check / re-create EXT4 filesystem on \"log\" partition /dev/${TARGET_DISK_SET}2:" >&2
+		fstype="$(lsblk -fr /dev/${TARGET_DISK_SET}2 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
+		if [ -z "$fstype" ] || [ "$fstype" != "ext4" ]; then
+#			echo "Recreate:" >&2
+			mkfs.ext4 -F /dev/${TARGET_DISK_SET}2 >&2
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				msg="Failed to check / re-create EXT4 filesystem on \"log\" partition /dev/${TARGET_DISK_SET}2!"
+#			else
+#				echo -e "Re-create OK!\n" >&2
+			fi
+#		else
+#			echo -e "Check OK!\n" >&2
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		# RootA partition:
+		echo "Check / re-create EXT4 filesystem on \"rootA\" partition /dev/${TARGET_DISK_SET}3:" >&2
+		fstype="$(lsblk -fr /dev/${TARGET_DISK_SET}3 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
+		if [ -z "$fstype" ] || [ "$fstype" != "ext4" ]; then
+#			echo "Recreate:" >&2
+			mkfs.ext4 -F /dev/${TARGET_DISK_SET}3 >&2
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				msg="Failed to check / re-create EXT4 filesystem on \"rootA\" partition /dev/${TARGET_DISK_SET}3!"
+#			else
+#				echo -e "Re-create OK!\n" >&2
+			fi
+#		else
+#			echo -e "Check OK!\n" >&2
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		# RootB partition:
+		echo "Check / re-create EXT4 filesystem on \"rootB\" partition /dev/${TARGET_DISK_SET}4:" >&2
+		fstype="$(lsblk -fr /dev/${TARGET_DISK_SET}4 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
+		if [ -z "$fstype" ] || [ "$fstype" != "ext4" ]; then
+#			echo "Recreate:" >&2
+			mkfs.ext4 -F /dev/${TARGET_DISK_SET}4 >&2
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				msg="Failed to check / re-create EXT4 filesystem on \"rootB\" partition /dev/${TARGET_DISK_SET}4!"
+#			else
+#				echo -e "Re-create OK!\n" >&2
+			fi
+#		else
+#			echo -e "Check OK!\n" >&2
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		msg="Checking / re-creating filesystems successfully finished!"
+	fi
+
+	echo "${msg}" >&2
+	return $rv
+}
+
+check_images_bundle_initial_content() {
+	local msg=""
+	local rv=0
+
+	cd ${U2UP_IMAGES_DIR} >&2
+	ln -sf ${U2UP_IMAGES_BUNDLE_ARCHIVE} $(cat ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM} | sed -e 's%^.* %%g')
+	sha256sum -c ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
+	rv=$?
+	if [ $rv -ne 0 ]; then
+		msg="Images bundle checksum mismatch!"
+	fi
+	cd - >&2
+	if [ $rv -eq 0 ]; then
+		tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_IDS_CONF_FILE} > /dev/null
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Images bundle not containing: ${U2UP_IDS_CONF_FILE}!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		U2UP_IMAGE_ROOTFS_NAME=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} 2> /dev/null | grep U2UP_ROOTFS_NAME | sed 's/U2UP_ROOTFS_NAME\=//')
+		if [ -z "${U2UP_IMAGE_ROOTFS_NAME}" ]; then
+			msg="Images bundle installation rootfs archive name not set!"
+			rv=1
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		U2UP_IMAGE_ROOTFS_DTS=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} 2> /dev/null | grep U2UP_ROOTFS_DTS | sed 's/U2UP_ROOTFS_DTS\=//')
+		if [ -z "${U2UP_IMAGE_ROOTFS_DTS}" ]; then
+			msg="Images bundle installation rootfs archive Date-TimeStamp not set!"
+			rv=1
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_IMAGE_ROOTFS_NAME}-${MACHINE}.tar.gz
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Images bundle not containing: ${U2UP_IMAGE_ROOTFS_NAME}-${MACHINE}.tar.gz!"
+		fi
+	fi
+	if [ $rv -ne 0 ]; then
+		U2UP_IMAGE_ROOTFS_NAME=""
+		U2UP_IMAGE_ROOTFS_DTS=""
+		echo "${msg}" >&2
+	fi
+	return $rv
+}
+
+mount_installation_filesystem() {
+	local TARGET_DISK_SET=$1
+	local TARGET_PART_SET=$2
+	local root_part_suffix=$3
+	local msg=""
+	local rv=0
+
+	echo "Mounting installation partition filesystem..." >&2
+	if [ $rv -eq 0 ] && [ -z "$TARGET_DISK_SET" ]; then
+		msg="Target disk not defined!"
+		rv=1
+	fi
+	if [ $rv -eq 0 ] && [ -z "$TARGET_PART_SET" ]; then
+		msg="Target disk paritition not defined!"
+		rv=1
+	fi
+	if [ $rv -eq 0 ] && [ -z "$root_part_suffix" ]; then
+		msg="Target root_part_suffix not defined!"
+		rv=1
+	fi
+	if [ $rv -eq 0 ]; then
+		umount -f $U2UP_INSTALL_ROOT_MNT >&2
+		mount /dev/$TARGET_PART_SET $U2UP_INSTALL_ROOT_MNT >&2
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to mount installation partition filesystem (${TARGET_PART_SET} - root${root_part_suffix})!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		msg="Mounting installation partition filesystem (${TARGET_PART_SET} - root${root_part_suffix}) successfully finished!"
+	fi
+
+	echo "${msg}" >&2
+	return $rv
+}
+
+extract_rootfs_from_images_bundle() {
+	local TARGET_DISK_SET=$1
+	local TARGET_PART_SET=$2
+	local root_part_suffix=$3
+	local msg=""
+	local rv=0
+
+	echo "Extracting root filesystem archive..." >&2
+	if [ $rv -eq 0 ] && [ -z "$TARGET_DISK_SET" ]; then
+		msg="Target disk not defined!"
+		rv=1
+	fi
+	if [ $rv -eq 0 ] && [ -z "$TARGET_PART_SET" ]; then
+		msg="Target disk paritition not defined!"
+		rv=1
+	fi
+	if [ $rv -eq 0 ] && [ -z "$root_part_suffix" ]; then
+		msg="Target root_part_suffix not defined!"
+		rv=1
+	fi
+	if [ $rv -eq 0 ]; then
+		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IMAGE_ROOTFS_NAME}-${MACHINE}.tar.gz | tar xz -C $U2UP_INSTALL_ROOT_MNT >&2
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to extract root filesystem archive!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		msg="Extracting root filesystem archive successfully finished!"
+	fi
+
+	echo "${msg}" >&2
+	return $rv
+}
+
+update_filesystem_chrooted() {
+	local msg=""
+	local rv=0
+
+	echo "Updating installed system (chrooted)..." >&2
+	if [ $rv -eq 0 ]; then
+		mount -o bind /dev ${U2UP_INSTALL_ROOT_MNT}/dev
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to mount-bind /dev!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		mount -o bind /dev/shm ${U2UP_INSTALL_ROOT_MNT}/dev/shm
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to mount-bind /dev/shm!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		mount -o bind /proc ${U2UP_INSTALL_ROOT_MNT}/proc
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to mount-bind /proc!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		mount -o bind /sys ${U2UP_INSTALL_ROOT_MNT}/sys
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to mount-bind /sys!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		if [ -x "${HOME}/u2up-update-chrooted.sh" ]; then
+			echo "WARNING! Using local (chrooted) script!" >&2
+			cp -pf ${U2UP_INSTALL_ROOT_MNT}/usr/bin/u2up-update-chrooted.sh ${U2UP_INSTALL_ROOT_MNT}/usr/bin/u2up-update-chrooted.sh_orig
+			cp -f ${HOME}/u2up-update-chrooted.sh ${U2UP_INSTALL_ROOT_MNT}/usr/bin/u2up-update-chrooted.sh
+		fi
+		if [ -f "${HOME}/u2up-install-bash-lib" ]; then
+			echo "WARNING! Using local (bash-lib) script!" >&2
+			cp -pf ${U2UP_INSTALL_ROOT_MNT}/lib/u2up/u2up-install-bash-lib ${U2UP_INSTALL_ROOT_MNT}/lib/u2up/u2up-install-bash-lib_orig
+			cp -f ${HOME}/u2up-install-bash-lib ${U2UP_INSTALL_ROOT_MNT}/lib/u2up/u2up-install-bash-lib
+		fi
+		chroot ${U2UP_INSTALL_ROOT_MNT} /usr/bin/u2up-update-chrooted.sh
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed executing (chrooted) script!"
+		fi
+	fi
+	umount ${U2UP_INSTALL_ROOT_MNT}/sys
+	umount ${U2UP_INSTALL_ROOT_MNT}/proc
+	umount ${U2UP_INSTALL_ROOT_MNT}/dev/shm
+	umount ${U2UP_INSTALL_ROOT_MNT}/dev
+	# Mounted explicitly in chrooted env but unmounted here!
+	umount ${U2UP_INSTALL_ROOT_MNT}/boot
+	umount ${U2UP_INSTALL_ROOT_MNT}/var/volatile/log
+	if [ $rv -ne 0 ]; then
+		echo "${msg}" >&2
+		echo "Failed to update installation system (chrooted)!" >&2
+	else
+		echo "Successfully updated installation system (chrooted)!" >&2
+	fi
+
+	return $rv 
+}
+
+check_images_bundle_all_content() {
+	local msg=""
+	local rv=0
+
+	if [ -f "${U2UP_IMAGES_LOCAL_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE}" ]; then
+		mv ${U2UP_IMAGES_LOCAL_DIR}/* ${U2UP_IMAGES_DIR}/
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to move local images bundle to common location!"
+		fi
+	fi
+	if [ $rv -eq 0 ] && [ ! -f "${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE}" ]; then
+		msg="Images bundle not available!"
+		rv=1
+	fi
+	if [ $rv -eq 0 ]; then
+		cd ${U2UP_IMAGES_DIR} >&2
+		ln -sf ${U2UP_IMAGES_BUNDLE_ARCHIVE} $(cat ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM} | sed -e 's%^.* %%g')
+		sha256sum -c ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Images bundle checksum mismatch!"
+		fi
+		cd - >&2
+	fi
+	if [ $rv -eq 0 ]; then
+		tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_IDS_CONF_FILE} 2> /dev/null
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Images bundle not containing: ${U2UP_IDS_CONF_FILE}!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		U2UP_IMAGE_ROOTFS_NAME=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} 2> /dev/null | grep U2UP_ROOTFS_NAME | sed 's/U2UP_ROOTFS_NAME\=//')
+		if [ -z "${U2UP_IMAGE_ROOTFS_NAME}" ]; then
+			msg="Images bundle installation rootfs archive name not set!"
+			rv=1
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		U2UP_IMAGE_ROOTFS_DTS=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} 2> /dev/null | grep U2UP_ROOTFS_DTS | sed 's/U2UP_ROOTFS_DTS\=//')
+		if [ -z "${U2UP_IMAGE_ROOTFS_DTS}" ]; then
+			msg="Images bundle installation rootfs archive Date-TimeStamp not set!"
+			rv=1
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_IMAGE_ROOTFS_NAME}-${MACHINE}.tar.gz
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Images bundle not containing: ${U2UP_IMAGE_ROOTFS_NAME}-${MACHINE}.tar.gz!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Images bundle not containing: ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_INITRD_IMAGE}.cpio
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Images bundle not containing: ${U2UP_INITRD_IMAGE}.cpio!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		tar tvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} systemd-${U2UP_EFI_FALLBACK_IMAGE}
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			masg="Images bundle not containing: systemd-${U2UP_EFI_FALLBACK_IMAGE}!"
+		fi
+	fi
+	if [ $rv -ne 0 ]; then
+		U2UP_IMAGE_ROOTFS_NAME=""
+		U2UP_IMAGE_ROOTFS_DTS=""
+		echo "${msg}" >&2
+	fi
+	return $rv
+}
+
+extract_remaining_from_images_bundle() {
+	local root_part_suffix=$1
+	local msg=""
+	local rv=0
+
+	if [ $rv -eq 0 ] && [ -z "$root_part_suffix" ]; then
+		msg="Target root_part_suffix not defined!"
+		rv=1
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Extracting U2UP_IDS..." >&2
+		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --overwrite -C ${U2UP_CONF_DIR} ${U2UP_IDS_CONF_FILE} >&2
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to extract U2UP_IDS!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Extracting installation boot images..." >&2
+		mkdir -p /boot/EFI/BOOT
+		mkdir -p /boot/loader/entries
+		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin >&2
+		((rv+=$?))
+		mv /boot/${U2UP_KERNEL_IMAGE}-${MACHINE}.bin /boot/bzImage${root_part_suffix} >&2
+		((rv+=$?))
+		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot ${U2UP_INITRD_IMAGE}.cpio >&2
+		((rv+=$?))
+		mv /boot/${U2UP_INITRD_IMAGE}.cpio /boot/microcode${root_part_suffix}.cpio >&2
+		((rv+=$?))
+		if [ ! -f "/boot/EFI/BOOT/bootx64.efi" ]; then
+			tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot/EFI/BOOT systemd-${U2UP_EFI_FALLBACK_IMAGE} >&2
+			((rv+=$?))
+			mv /boot/EFI/BOOT/systemd-${U2UP_EFI_FALLBACK_IMAGE} /boot/EFI/BOOT/${U2UP_EFI_FALLBACK_IMAGE} >&2
+			((rv+=$?))
+		fi
+		if [ $rv -ne 0 ]; then
+			msg="Failed to extract installation boot images!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		msg="Extracting installation images successfully finished!"
+	fi
+
+	echo "${msg}" >&2
+	return $rv
+}
+
+
+populate_u2up_images_bundle() {
+	local root_path_prefix=${1:-${U2UP_INSTALL_ROOT_MNT}}
+	local images_dir=${2:-${U2UP_IMAGES_DIR}}
+	local images_name=${3:-${U2UP_IMAGES_BUNDLE_NAME}}
+	local rv=0
+
+	if [ ! -d "${images_dir}" ]; then
+		return 1
+	fi
+	if [ -z "$root_path_prefix" ]; then
+		return 1
+	fi
+	rm -rf ${root_path_prefix}${images_dir}
+	mkdir -p ${root_path_prefix}${images_dir}
+	cp -pf ${images_dir}/${images_name}* ${root_path_prefix}${images_dir}/
+	rv=$?
+	return $rv
+}
+
 populate_u2up_configurations() {
 	local root_path_prefix=$1
 	local conf_dir=${2:-${U2UP_CONF_DIR}}
 	local file=""
-	local rv=1
+	local rv=0
 
 	if [ ! -d "${conf_dir}" ]; then
 		return 1
 	fi
 	if [ -z "$root_path_prefix" ]; then
-		return $rv
+		return 1
 	fi
 	rm -rf ${root_path_prefix}${U2UP_CONF_DIR}
 	mkdir -p $(dirname ${root_path_prefix}${U2UP_CONF_DIR})

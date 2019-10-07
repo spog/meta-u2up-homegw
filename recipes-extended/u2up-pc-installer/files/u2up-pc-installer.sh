@@ -26,72 +26,18 @@ if [ -z "${U2UP_INSTALL_DIALOG_LIB_SOURCED}" ]; then
 	source ${U2UP_INSTALL_DIALOG_LIB}
 fi
 
+# Installation media (i.e. USB) uses separate (not common) location to hold images bundle!
+U2UP_IMAGES_DIR_COMMON=${U2UP_IMAGES_DIR}
 U2UP_IMAGES_DIR="/var/lib/u2up-images"
-U2UP_IMAGES_BUNDLE_NAME="u2up-homegw-bundle"
-U2UP_IMAGES_BUNDLE_ARCHIVE=${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_NAME}.tar
-if [ ! -f "${U2UP_IMAGES_BUNDLE_ARCHIVE}" ]; then
+if [ ! -f "${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE}" ]; then
 	echo "Program terminated (missing: ${U2UP_IMAGES_BUNDLE_ARCHIVE})!" >&2
 	exit 1
 fi
-U2UP_IMAGES_BUNDLE_ARCHIVE_SUM=${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_NAME}.tar.sha256
-if [ ! -f "${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}" ]; then
+if [ ! -f "${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}" ]; then
 	echo "Program terminated (missing: ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM})!" >&2
 	exit 1
 fi
 
-cd ${U2UP_IMAGES_DIR}
-ln -sf $(basename ${U2UP_IMAGES_BUNDLE_ARCHIVE}) $(cat ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM} | sed -e 's%^.* %%g')
-sha256sum -c ${U2UP_IMAGES_BUNDLE_ARCHIVE_SUM}
-if [ $? -ne 0 ]; then
-	echo "Program terminated (checksum mismatch: ${U2UP_IMAGES_BUNDLE_ARCHIVE})!" >&2
-	exit 1
-fi
-cd -
-
-MACHINE="intel-corei7-64"
-
-U2UP_FS_IMAGE_ARCHIVE=u2up-homegw-image-full-cmdline
-#U2UP_KERNEL_MODULES_ARCHIVE=modules
-U2UP_KERNEL_IMAGE=bzImage
-U2UP_INITRD_IMAGE=microcode
-U2UP_EFI_FALLBACK_IMAGE=bootx64.efi
-
-tar tvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz
-if [ $? -ne 0 ]; then
-	echo "Program terminated (bundle not containing: ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz)!" >&2
-	exit 1
-fi
-#tar tvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_KERNEL_MODULES_ARCHIVE}-${MACHINE}.tgz
-#if [ $? -ne 0 ]; then
-#	echo "Program terminated (bundle not containing: ${U2UP_KERNEL_MODULES_ARCHIVE}-${MACHINE}.tgz)!" >&2
-#	exit 1
-#fi
-tar tvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin
-if [ $? -ne 0 ]; then
-	echo "Program terminated (bundle not containing: ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin)!" >&2
-	exit 1
-fi
-tar tvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} ${U2UP_INITRD_IMAGE}.cpio
-if [ $? -ne 0 ]; then
-	echo "Program terminated (bundle not containing: ${U2UP_INITRD_IMAGE}.cpio)!" >&2
-	exit 1
-fi
-tar tvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} systemd-${U2UP_EFI_FALLBACK_IMAGE}
-if [ $? -ne 0 ]; then
-	echo "Program terminated (bundle not containing: systemd-${U2UP_EFI_FALLBACK_IMAGE})!" >&2
-	exit 1
-fi
-echo "Extracting U2UP_IDS:" >&2
-tar xvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} -C ${U2UP_CONF_DIR} ${U2UP_IDS_CONF_FILE}
-if [ $? -ne 0 ]; then
-	echo "Program terminated (bundle not containing: ${U2UP_IDS_CONF_FILE})!" >&2
-	exit 1
-fi
-
-echo "press enter to continue..." >&2
-read
-
-source ${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE}
 DIALOG_CANCEL=1
 DIALOG_ESC=255
 HEIGHT=0
@@ -1080,181 +1026,179 @@ check_create_filesystems() {
 }
 
 
-populate_root_filesystem() {
-	local TARGET_DISK_SET=""
-	local TARGET_PART_SET=""
-	local root_part_suffix=""
-	local root_part_uuid=""
-	local rv=1
+configure_default_boot_entry() {
+	local target_disk=""
+	local target_part=""
+	local root_part_label=""
+	local msg=""
+	local rv=0
 
-	if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
-		source ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
+	echo "Configuring default boot entry..." >&2
+	target_disk=$(get_current_target_disk)
+	target_part=$(get_current_target_part)
+	root_part_label="$(get_root_label ${target_disk} ${target_part})"
+	if [ $rv -ne 0 ] || [ -z "${root_part_label}" ]; then
+		msg="Root partition label unknown: disk=\"${target_disk}\", part=\"${target_part}\")!"
+		rv=1
 	fi
-	if [ -z "$TARGET_DISK_SET" ] || [ -z "TARGET_PART_SET" ]; then
-		return $rv
+	if [ $rv -eq 0 ]; then
+		echo "Mounting boot filesystem:" >&2
+		mount -t vfat -o umask=0077 /dev/${target_disk}1 /boot >&2
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to mount boot filesystem!"
+		fi
 	fi
-	root_part_uuid="$(lsblk -ir -o NAME,PARTUUID /dev/$TARGET_PART_SET | grep -v "NAME" | sed 's/[a-z,0-9]* //')"
-	if [ -z "$root_part_uuid" ]; then
-		return $rv
+	if [ $rv -eq 0 ]; then
+		echo "Setting default boot entry..." >&2
+		set_default_boot ${root_part_label}
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to set default boot enrtry!"
+		fi
 	fi
-	if [ "${TARGET_PART_SET}" = "${TARGET_DISK_SET}3" ]; then
-		root_part_suffix="A"
-	elif [ "${TARGET_PART_SET}" = "${TARGET_DISK_SET}4" ]; then
-		root_part_suffix="B"
-	else
-		return $rv
+	if [ $rv -eq 0 ]; then
+		msg="Successfully configured default boot entry!"
 	fi
+	echo "${msg}" >&2
 
-	echo "Mounting root filesystem:" >&2
-	umount -f /mnt >&2
-	mount /dev/$TARGET_PART_SET /mnt >&2
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	echo "Extracting root filesystem archive:" >&2
-	tar xvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_FS_IMAGE_ARCHIVE}-${MACHINE}.tar.gz | tar xz -C /mnt >&2
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-#	echo "Extracting kernel modules archive:" >&2
-#	tar xvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_KERNEL_MODULES_IMAGE_ARCHIVE}-${MACHINE}.tgz | tar xz -C /mnt >&2
-#	rv=$?
-#	if [ $rv -ne 0 ]; then
-#		return $rv
-#	fi
-	echo "Populate \"u2up-config.d\" of the installed system:" >&2
-	populate_u2up_configurations "/mnt"
-	((rv+=$?))
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	echo "Configure target keyboard mapping:" >&2
-	enable_keymap_selection 1 "/mnt"
-	((rv+=$?))
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	echo "Configure \"fstab\" for common boot partition:" >&2
-	echo "/dev/${TARGET_DISK_SET}1 /boot vfat umask=0077 0 1" >> /mnt/etc/fstab
-	((rv+=$?))
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	echo "Configure \"fstab\" for common logging partition:" >&2
-	echo "/dev/${TARGET_DISK_SET}2 /var/log ext4 errors=remount-ro 0 1" >> /mnt/etc/fstab
-	((rv+=$?))
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	echo "Done configuring target disk and partitions:" >&2
-	set_target_done_for /mnt/${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE} 1
-	((rv+=$?))
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	echo "Configure \"internal network\" of the installed system:" >&2
-	execute_net_reconfiguration "/mnt/"
-	((rv+=$?))
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	echo "Mounting boot filesystem:" >&2
-	umount -f /mnt >&2
-	mount /dev/${TARGET_DISK_SET}1 /mnt >&2
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	echo "Prepare boot images:" >&2
-	mkdir -p /mnt/EFI/BOOT
-	mkdir -p /mnt/loader/entries
-	tar xvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /mnt ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin >&2
-	((rv+=$?))
-	mv /mnt/${U2UP_KERNEL_IMAGE}-${MACHINE}.bin /mnt/bzImage${root_part_suffix} >&2
-	((rv+=$?))
-	tar xvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /mnt ${U2UP_INITRD_IMAGE}.cpio >&2
-	((rv+=$?))
-	mv /mnt/${U2UP_INITRD_IMAGE}.cpio /mnt/microcode${root_part_suffix}.cpio >&2
-	((rv+=$?))
-	if [ ! -f "/mnt/EFI/BOOT/bootx64.efi" ]; then
-		tar xvf ${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /mnt/EFI/BOOT systemd-${U2UP_EFI_FALLBACK_IMAGE} >&2
-		((rv+=$?))
-		mv /mnt/EFI/BOOT/systemd-${U2UP_EFI_FALLBACK_IMAGE} /mnt/EFI/BOOT/${U2UP_EFI_FALLBACK_IMAGE} >&2
-		((rv+=$?))
-	fi
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	echo "Create new boot  \"${root_part_label}\" menu:" >&2
-	source ${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE}
-	echo "title ${root_part_label} (${U2UP_ROOTFS_DTS})" > /mnt/loader/entries/${root_part_label}.conf
-	((rv+=$?))
-	echo "linux /bzImage${root_part_suffix}" >> /mnt/loader/entries/${root_part_label}.conf
-	((rv+=$?))
-	echo "options label=${root_part_label} root=PARTUUID=${root_part_uuid} rootwait rootfstype=ext4 console=tty0 ttyprintk.tioccons=1" >> /mnt/loader/entries/${root_part_label}.conf
-	((rv+=$?))
-	echo "initrd /microcode${root_part_suffix}.cpio" >> /mnt/loader/entries/${root_part_label}.conf
-	((rv+=$?))
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	echo "Configure default boot:" >&2
-	echo "default ${root_part_label}" > /mnt/loader/loader.conf
-	((rv+=$?))
-	echo "timeout 5" >> /mnt/loader/loader.conf
-	((rv+=$?))
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
 	return $rv
 }
 
 proceed_target_install() {
-	local rv=1
+	local TARGET_DISK_SET=""
+	local TARGET_PART_SET=""
+	local root_part_suffix=""
+	local msg=""
+	local rv=0
 
-	check_create_filesystems
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		echo "press enter to continue..." >&2
-		read
-		display_result "Installation" "Failed to check / create filesystems!"
-		return $rv
+	if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
+		source ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 	fi
-
-	populate_root_filesystem
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		echo "press enter to continue..." >&2
-		read
-		display_result "Installation" "Failed to populate root filesystem!"
-		return $rv
+	if [ $rv -eq 0 ] && [ -z "$TARGET_DISK_SET" ]; then
+		msg="Target disk not defined!"
+		rv=1
 	fi
-
-	echo "press enter to continue..." >&2
-	read
-	display_yesno "Installation" \
-"Installation successfully finished!\n\n\
-To reboot into new target installation, remove the installation media during the system reset!\n\n\
-Do you wish to reboot into new target installation now?" 10
-	rv=$?
+	if [ $rv -eq 0 ] && [ -z "$TARGET_PART_SET" ]; then
+		msg="Target disk paritition not defined!"
+		rv=1
+	fi
 	if [ $rv -eq 0 ]; then
-		#Yes
-		reboot
-		exit 0
+		root_part_suffix="$(get_root_label_suffix ${TARGET_DISK_SET} ${TARGET_PART_SET})"
+		if [ -z "$root_part_suffix" ]; then
+			msg="Target root_part_suffix not defined!"
+			rv=1
+		fi
 	fi
+	if [ $rv -eq 0 ]; then
+		check_create_filesystems $TARGET_DISK_SET $TARGET_PART_SET
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed checking / creating filesystems!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		mount_installation_filesystem $TARGET_DISK_SET $TARGET_PART_SET $root_part_suffix
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed mounting installation filesystem!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		extract_rootfs_from_images_bundle $TARGET_DISK_SET $TARGET_PART_SET $root_part_suffix
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed extracting root filesystem archive from images bundle!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Populating the installed system with images bundle..." >&2
+		populate_u2up_images_bundle "${U2UP_INSTALL_ROOT_MNT}" "${U2UP_IMAGES_DIR}" "${U2UP_IMAGES_BUNDLE_NAME}"
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed populating the installed system with images bundle!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Populating the installed system with \"u2up-configurations\"..." >&2
+		populate_u2up_configurations "${U2UP_INSTALL_ROOT_MNT}" "${U2UP_CONF_DIR}"
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed populating the installed system with \"u2up-configurations\"!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		update_filesystem_chrooted
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed updating installed system (chrooted)!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		configure_default_boot_entry
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed configuring default boot entry!"
+		fi
+	fi
+	if [ $rv -ne 0 ]; then
+		echo "${msg}" >&2
+	fi
+
 	return $rv
 }
 
 execute_target_install() {
-	check_target_configurations
-	if [ $? -eq 0 ]; then
+	local rv=0
+	local msg=""
+
+	echo "Starting target installation..." >&2
+	if [ $rv -eq 0 ]; then
+		echo "Checking current target disk setup..." >&2
 		check_current_target_disk_setup "Installation"
-		if [ $? -eq 0 ]; then
-			proceed_target_install
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Current target disk setup check failed!"
 		fi
 	fi
+	if [ $rv -eq 0 ]; then
+		echo "Checking installation images bundle initial content..." >&2
+		check_images_bundle_initial_content
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Images bundle initial content check failed!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Proceeding target installation..." >&2
+		proceed_target_install
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Proceeding target installation failed!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		msg="Target installation successfully finished!"
+	fi
+
+	echo "${msg}" >&2
+	echo "press enter to continue..." >&2
+	read
+	if [ $rv -eq 0 ]; then
+		display_yesno "Installation" \
+"Installation successfully finished!\n\n\
+To reboot into new target installation, remove the installation media during the system reset!\n\n\
+Do you wish to reboot into new target installation now?" 10
+		rv=$?
+		if [ $rv -eq 0 ]; then
+			#Yes
+			reboot
+			exit 0
+		fi
+	else
+		display_result "Installation" "${msg}"
+	fi
+	return $rv
 }
 
 main_loop () {
@@ -1324,7 +1268,7 @@ main_loop () {
 			"7" "Static network configuration [${NET_INTERNAL_ADDR_MASK_SET}]" \
 			"8" "Installation packages repo [${INSTALL_REPO_BASE_URL_SET}]" \
 			"9" "Installation partition [${TARGET_PART_SET} - ${root_part_label}]" \
-			"10" "Install (${U2UP_ROOTFS_DTS})" \
+			"10" "Install (${U2UP_IMAGE_ROOTFS_DTS})" \
 		2>&1 1>&3)
 		exit_status=$?
 		exec 3>&-
@@ -1443,6 +1387,21 @@ main_loop () {
 	done
 }
 
+check_images_bundle_initial_content
+echo "Rootfs Archive-Name: ${U2UP_IMAGE_ROOTFS_NAME}" >&2
+echo "Rootfs Date-TimeStemp: ${U2UP_IMAGE_ROOTFS_DTS}" >&2
+echo >&2
+echo "press enter to continue..." >&2
+read
+
+if [ -z "${U2UP_IMAGE_ROOTFS_NAME}" ]; then
+	echo "Terminating: Unknown rootfs archive-name!" >&2
+	exit 1
+fi
+if [ -z "${U2UP_IMAGE_ROOTFS_DTS}" ]; then
+	echo "Terminating: Unknown rootfs date-timestamp!" >&2
+	exit 1
+fi
 # Call main function:
 main_loop
 

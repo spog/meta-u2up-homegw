@@ -13,6 +13,7 @@ SRC_URI = " \
            file://u2up-pre-config.target \
            file://u2up-pre-config.service \
            file://u2up-homegw-installer.sh \
+           file://u2up-update-chrooted.sh \
 "
 
 do_patch () {
@@ -22,6 +23,7 @@ do_patch () {
 	mv ${WORKDIR}/u2up-pre-config.target ${S}/
 	mv ${WORKDIR}/u2up-pre-config.service ${S}/
 	mv ${WORKDIR}/u2up-homegw-installer.sh ${S}/
+	mv ${WORKDIR}/u2up-update-chrooted.sh ${S}/
 	echo "%wheel ALL=(ALL) ALL" > ${S}/enable_wheel
 	echo "[ \$(id -Gn | grep -c wheel) -eq 1 ] && PATH=\$PATH:/usr/local/sbin:/usr/sbin:/sbin" > ${S}/wheel.sh
 	echo "[Manager]" > ${S}/01-systemd-no-colors.conf
@@ -44,6 +46,7 @@ do_install () {
 	install -m 0755 ${S}/u2up-homegw.sh ${D}/usr/bin/
 	install -m 0755 ${S}/u2up-pre-config.sh ${D}/usr/bin/
 	install -m 0755 ${S}/u2up-homegw-installer.sh ${D}/usr/bin/
+	install -m 0755 ${S}/u2up-update-chrooted.sh ${D}/usr/bin/
 }
 
 pkg_postinst_${PN}() {
