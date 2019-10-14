@@ -105,10 +105,10 @@ display_keymap_submenu() {
 		;;
 	esac
 
-	store_keymap_selection $selection
+	save_u2up_keymap_selection $selection
 	rv=$?
 	if [ $rv -eq 0 ]; then
-		enable_keymap_selection
+		enable_u2up_keymap_selection
 	fi
 }
 
@@ -152,7 +152,7 @@ display_target_disk_submenu() {
 		;;
 	esac
 
-	store_target_disk_selection $selection
+	save_u2up_target_disk_selection $selection
 }
 
 display_net_internal_ifname_submenu() {
@@ -195,7 +195,7 @@ display_net_internal_ifname_submenu() {
 		;;
 	esac
 
-	store_net_internal_iface_selection $selection
+	save_u2up_net_internal_iface_selection $selection
 }
 
 display_target_part_submenu() {
@@ -218,7 +218,7 @@ display_target_part_submenu() {
 	done)
 
 	if [ -z "$radiolist" ]; then
-		store_target_part_selection ${target_disk_current}3
+		save_u2up_target_part_selection ${target_disk_current}3
 		return 0
 	fi
 
@@ -243,16 +243,16 @@ display_target_part_submenu() {
 		;;
 	esac
 
-	store_target_part_selection $selection
+	save_u2up_target_part_selection $selection
 }
 
 check_target_disk_set() {
 	if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
 		source ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 	else
-		TARGET_DISK_SET=""
+		u2up_TARGET_DISK=""
 	fi
-	if [ -z "$TARGET_DISK_SET" ]; then
+	if [ -z "$u2up_TARGET_DISK" ]; then
 		display_result "Target disk check" "Please select your target disk for the installation!"
 		return 1
 	fi
@@ -262,9 +262,9 @@ check_net_internal_ifname_set() {
 	if [ -f "${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
 		source ${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
 	else
-		NET_INTERNAL_IFNAME_SET=""
+		u2up_NET_INTERNAL_IFNAME=""
 	fi
-	if [ -z "$NET_INTERNAL_IFNAME_SET" ]; then
+	if [ -z "$u2up_NET_INTERNAL_IFNAME" ]; then
 		display_result "Network internal interface check" "Please select your network internal interface!"
 		return 1
 	fi
@@ -274,7 +274,7 @@ check_install_repo_config_set() {
 	if [ -f "${U2UP_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
 		source ${U2UP_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}
 	else
-		INSTALL_REPO_BASE_URL_SET=""
+		u2up_INSTALL_REPO_BASE_URL=""
 	fi
 }
 
@@ -282,9 +282,9 @@ check_target_part_set() {
 	if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
 		source ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 	else
-		TARGET_PART_SET=""
+		u2up_TARGET_PART=""
 	fi
-	if [ -z "$TARGET_PART_SET" ]; then
+	if [ -z "$u2up_TARGET_PART" ]; then
 		display_result "Target partition check" "Please select your target partition for the installation!"
 		return 1
 	fi
@@ -294,13 +294,13 @@ check_target_part_sizes_set() {
 	if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
 		source ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 	else
-		TARGET_BOOT_PARTSZ_SET=""
+		u2up_TARGET_BOOT_PARTSZ=""
 	fi
 	if \
-		[ -z "$TARGET_BOOT_PARTSZ_SET" ] || \
-		[ -z "$TARGET_LOG_PARTSZ_SET" ] || \
-		[ -z "$TARGET_ROOTA_PARTSZ_SET" ] || \
-		[ -z "$TARGET_ROOTB_PARTSZ_SET" ];
+		[ -z "$u2up_TARGET_BOOT_PARTSZ" ] || \
+		[ -z "$u2up_TARGET_LOG_PARTSZ" ] || \
+		[ -z "$u2up_TARGET_ROOTA_PARTSZ" ] || \
+		[ -z "$u2up_TARGET_ROOTB_PARTSZ" ];
 	then
 		display_result "Target partition sizes check" "Please set your target partition sizes for the installation!"
 		return 1
@@ -321,23 +321,23 @@ check_target_disk_configuration() {
 	fi
 }
 
-check_network_configuration() {
-	if [ -f "${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
-		source ${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
-	else
-		NET_INTERNAL_IFNAME_SET=""
-	fi
-	if \
-		[ -z "$NET_INTERNAL_IFNAME_SET" ] || \
-		[ -z "$NET_INTERNAL_ADDR_MASK_SET" ] || \
-		[ -z "$NET_INTERNAL_GW_SET" ] || \
-		[ -z "$NET_DNS_SET" ] || \
-		[ -z "$NET_DOMAINS_SET" ];
-	then
-		display_result "Network configuration check" "Please set your networking parameters!"
-		return 1
-	fi
-}
+#check_network_configuration() {
+#	if [ -f "${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
+#		source ${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
+#	else
+#		u2up_NET_INTERNAL_IFNAME=""
+#	fi
+#	if \
+#		[ -z "$u2up_NET_INTERNAL_IFNAME" ] || \
+#		[ -z "$u2up_NET_INTERNAL_ADDR_MASK" ] || \
+#		[ -z "$u2up_NET_INTERNAL_GW" ] || \
+#		[ -z "$u2up_NET_DNS" ] || \
+#		[ -z "$u2up_NET_DOMAINS" ];
+#	then
+#		display_result "Network configuration check" "Please set your networking parameters!"
+#		return 1
+#	fi
+#}
 
 check_target_configurations() {
 	local rv=1
@@ -375,16 +375,16 @@ check_part_type() {
 	esac
 	case $2 in
 	boot)
-		PART_NAME="${TARGET_DISK_SET}1"
+		PART_NAME="${u2up_TARGET_DISK}1"
 		;;
 	log)
-		PART_NAME="${TARGET_DISK_SET}2"
+		PART_NAME="${u2up_TARGET_DISK}2"
 		;;
 	rootA)
-		PART_NAME="${TARGET_DISK_SET}3"
+		PART_NAME="${u2up_TARGET_DISK}3"
 		;;
 	rootB)
-		PART_NAME="${TARGET_DISK_SET}4"
+		PART_NAME="${u2up_TARGET_DISK}4"
 		;;
 	*)
 		return 1
@@ -408,27 +408,27 @@ check_part_size() {
 	local part_line=""
 	local part_size=""
 	local sectors_in_kib=0
-	(( sectors_in_kib=1024/$(cat /sys/block/${TARGET_DISK_SET}/queue/hw_sector_size) ))
+	(( sectors_in_kib=1024/$(cat /sys/block/${u2up_TARGET_DISK}/queue/hw_sector_size) ))
 
 	if [ $sectors_in_kib -le 0 ]; then
 		retrn 1
 	fi
 	case $1 in
 	boot)
-		PART_NAME="${TARGET_DISK_SET}1"
-		PART_SIZE="${TARGET_BOOT_PARTSZ_SET}"
+		PART_NAME="${u2up_TARGET_DISK}1"
+		PART_SIZE="${u2up_TARGET_BOOT_PARTSZ}"
 		;;
 	log)
-		PART_NAME="${TARGET_DISK_SET}2"
-		PART_SIZE="${TARGET_LOG_PARTSZ_SET}"
+		PART_NAME="${u2up_TARGET_DISK}2"
+		PART_SIZE="${u2up_TARGET_LOG_PARTSZ}"
 		;;
 	rootA)
-		PART_NAME="${TARGET_DISK_SET}3"
-		PART_SIZE="${TARGET_ROOTA_PARTSZ_SET}"
+		PART_NAME="${u2up_TARGET_DISK}3"
+		PART_SIZE="${u2up_TARGET_ROOTA_PARTSZ}"
 		;;
 	rootB)
-		PART_NAME="${TARGET_DISK_SET}4"
-		PART_SIZE="${TARGET_ROOTB_PARTSZ_SET}"
+		PART_NAME="${u2up_TARGET_DISK}4"
+		PART_SIZE="${u2up_TARGET_ROOTB_PARTSZ}"
 		;;
 	*)
 		return 1
@@ -459,27 +459,27 @@ check_current_target_disk_setup() {
 	local action_name="${1}"
 	local root_part_label=""
 	local msg_warn=""
-	local msg_fdisk="$(fdisk -l /dev/${TARGET_DISK_SET})\n"
+	local msg_fdisk="$(fdisk -l /dev/${u2up_TARGET_DISK})\n"
 	local msg_size=17
 	local disk_change_needed=0
 	local first_sector=0
 	local sectors_in_kib=0
-	(( sectors_in_kib=1024/$(cat /sys/block/${TARGET_DISK_SET}/queue/hw_sector_size) ))
+	(( sectors_in_kib=1024/$(cat /sys/block/${u2up_TARGET_DISK}/queue/hw_sector_size) ))
 
 	if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
 		source ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 	else
-		TARGET_BOOT_PARTSZ_SET=""
+		u2up_TARGET_BOOT_PARTSZ=""
 	fi
-	root_part_label="$(get_root_label ${TARGET_DISK_SET} ${TARGET_PART_SET})"
+	root_part_label="$(get_root_label ${u2up_TARGET_DISK} ${u2up_TARGET_PART})"
 	if \
-		[ -n "$TARGET_BOOT_PARTSZ_SET" ] && \
-		[ -n "$TARGET_ROOTA_PARTSZ_SET" ] && \
-		[ -n "$TARGET_ROOTB_PARTSZ_SET" ] && \
-		[ -n "$TARGET_LOG_PARTSZ_SET" ]; \
+		[ -n "$u2up_TARGET_BOOT_PARTSZ" ] && \
+		[ -n "$u2up_TARGET_ROOTA_PARTSZ" ] && \
+		[ -n "$u2up_TARGET_ROOTB_PARTSZ" ] && \
+		[ -n "$u2up_TARGET_LOG_PARTSZ" ]; \
 	then
 		# Dump current target disk setup:
-		sfdisk -d /dev/${TARGET_DISK_SET} > $U2UP_TARGET_DISK_SFDISK_DUMP
+		sfdisk -d /dev/${u2up_TARGET_DISK} > $U2UP_TARGET_DISK_SFDISK_DUMP
 		rm -f $U2UP_TARGET_DISK_SFDISK_BASH
 
 		# Warn, if partition table NOT GPT: 
@@ -489,135 +489,135 @@ check_current_target_disk_setup() {
 			((msg_size+=4))
 			((disk_change_needed+=1))
 			cat >> $U2UP_TARGET_DISK_SFDISK_BASH << EOF
-echo 'label: gpt' | sfdisk /dev/${TARGET_DISK_SET}
+echo 'label: gpt' | sfdisk /dev/${u2up_TARGET_DISK}
 EOF
 		fi
 		cat >> $U2UP_TARGET_DISK_SFDISK_BASH << EOF
-sfdisk -d /dev/${TARGET_DISK_SET} | grep -vE "^\/dev\/${TARGET_DISK_SET}" > $U2UP_TARGET_DISK_SFDISK_DUMP
+sfdisk -d /dev/${u2up_TARGET_DISK} | grep -vE "^\/dev\/${u2up_TARGET_DISK}" > $U2UP_TARGET_DISK_SFDISK_DUMP
 EOF
 
 ########
 # BOOT
 ########
-		first_sector="$(sfdisk -d /dev/${TARGET_DISK_SET} | grep "first-lba" | sed 's/^.*: //')"
-		(( part_sectors=${TARGET_BOOT_PARTSZ_SET}*${sectors_in_kib}*1024*1024 ))
+		first_sector="$(sfdisk -d /dev/${u2up_TARGET_DISK} | grep "first-lba" | sed 's/^.*: //')"
+		(( part_sectors=${u2up_TARGET_BOOT_PARTSZ}*${sectors_in_kib}*1024*1024 ))
 		# Warn, if BOOT partition MISSING: 
-		if [ $(cat $U2UP_TARGET_DISK_SFDISK_DUMP | grep "/dev/${TARGET_DISK_SET}1" | wc -l) -eq 0 ]; then
-			msg_warn="${msg_warn}\n! (${TARGET_DISK_SET}1) boot partition - Missing\n"
+		if [ $(cat $U2UP_TARGET_DISK_SFDISK_DUMP | grep "/dev/${u2up_TARGET_DISK}1" | wc -l) -eq 0 ]; then
+			msg_warn="${msg_warn}\n! (${u2up_TARGET_DISK}1) boot partition - Missing\n"
 			((msg_size+=2))
 			((disk_change_needed+=1))
 		else
 		# Warn, if BOOT partition NOT EFI: 
 			check_part_type "EFI" "boot"
 			if [ $? -ne 0 ]; then
-				msg_warn="${msg_warn}\n! (${TARGET_DISK_SET}1) boot partition - Not EFI type\n"
+				msg_warn="${msg_warn}\n! (${u2up_TARGET_DISK}1) boot partition - Not EFI type\n"
 				((msg_size+=2))
 				((disk_change_needed+=1))
 			else
 		# Warn, if BOOT partition NOT SIZED: 
 				check_part_size "boot"
 				if [ $? -ne 0 ]; then
-					msg_warn="${msg_warn}\n! (${TARGET_DISK_SET}1) Boot partition - Resized\n"
+					msg_warn="${msg_warn}\n! (${u2up_TARGET_DISK}1) Boot partition - Resized\n"
 					((msg_size+=2))
 					((disk_change_needed+=1))
 				fi
 			fi
 		fi
 		cat >> $U2UP_TARGET_DISK_SFDISK_BASH << EOF
-echo "/dev/${TARGET_DISK_SET}1 : size= ${part_sectors}, type=${PART_TYPE_EFI}" >> $U2UP_TARGET_DISK_SFDISK_DUMP
+echo "/dev/${u2up_TARGET_DISK}1 : size= ${part_sectors}, type=${PART_TYPE_EFI}" >> $U2UP_TARGET_DISK_SFDISK_DUMP
 EOF
 
 #######
 # LOG
 #######
 		(( first_sector+=part_sectors ))
-		(( part_sectors=${TARGET_LOG_PARTSZ_SET}*${sectors_in_kib}*1024*1024 ))
+		(( part_sectors=${u2up_TARGET_LOG_PARTSZ}*${sectors_in_kib}*1024*1024 ))
 		# Warn, if LOG partition MISSING: 
-		if [ $(cat $U2UP_TARGET_DISK_SFDISK_DUMP | grep "/dev/${TARGET_DISK_SET}2" | wc -l) -eq 0 ]; then
-			msg_warn="${msg_warn}\n! (${TARGET_DISK_SET}2) log partition - Missing\n"
+		if [ $(cat $U2UP_TARGET_DISK_SFDISK_DUMP | grep "/dev/${u2up_TARGET_DISK}2" | wc -l) -eq 0 ]; then
+			msg_warn="${msg_warn}\n! (${u2up_TARGET_DISK}2) log partition - Missing\n"
 			((msg_size+=2))
 			((disk_change_needed+=1))
 		else
 		# Warn, if LOG partition NOT LINUX: 
 			check_part_type "Linux" "log"
 			if [ $? -ne 0 ]; then
-				msg_warn="${msg_warn}\n! (${TARGET_DISK_SET}2) log partition - Not Linux type\n"
+				msg_warn="${msg_warn}\n! (${u2up_TARGET_DISK}2) log partition - Not Linux type\n"
 				((msg_size+=2))
 				((disk_change_needed+=1))
 			else
 		# Warn, if LOG partition NOT SIZED: 
 				check_part_size "log"
 				if [ $? -ne 0 ]; then
-					msg_warn="${msg_warn}\n! (${TARGET_DISK_SET}2) log partition - Resized\n"
+					msg_warn="${msg_warn}\n! (${u2up_TARGET_DISK}2) log partition - Resized\n"
 					((msg_size+=2))
 					((disk_change_needed+=1))
 				fi
 			fi
 		fi
 		cat >> $U2UP_TARGET_DISK_SFDISK_BASH << EOF
-echo "/dev/${TARGET_DISK_SET}2 : size= ${part_sectors}, type=${PART_TYPE_LINUX}" >> $U2UP_TARGET_DISK_SFDISK_DUMP
+echo "/dev/${u2up_TARGET_DISK}2 : size= ${part_sectors}, type=${PART_TYPE_LINUX}" >> $U2UP_TARGET_DISK_SFDISK_DUMP
 EOF
 
 #########
 # ROOTA
 #########
 		(( first_sector+=part_sectors ))
-		(( part_sectors=${TARGET_ROOTA_PARTSZ_SET}*${sectors_in_kib}*1024*1024 ))
+		(( part_sectors=${u2up_TARGET_ROOTA_PARTSZ}*${sectors_in_kib}*1024*1024 ))
 		# Warn, if ROOTA partition MISSING: 
-		if [ $(cat $U2UP_TARGET_DISK_SFDISK_DUMP | grep "/dev/${TARGET_DISK_SET}3" | wc -l) -eq 0 ]; then
-			msg_warn="${msg_warn}\n! (${TARGET_DISK_SET}3) rootA partition - Missing\n"
+		if [ $(cat $U2UP_TARGET_DISK_SFDISK_DUMP | grep "/dev/${u2up_TARGET_DISK}3" | wc -l) -eq 0 ]; then
+			msg_warn="${msg_warn}\n! (${u2up_TARGET_DISK}3) rootA partition - Missing\n"
 			((msg_size+=2))
 			((disk_change_needed+=1))
 		else
 		# Warn, if ROOTA partition NOT LINUX: 
 			check_part_type "Linux" "rootA"
 			if [ $? -ne 0 ]; then
-				msg_warn="${msg_warn}\n! (${TARGET_DISK_SET}3) rootA partition - Not Linux type\n"
+				msg_warn="${msg_warn}\n! (${u2up_TARGET_DISK}3) rootA partition - Not Linux type\n"
 				((msg_size+=2))
 				((disk_change_needed+=1))
 			else
 		# Warn, if ROOTA partition NOT SIZED: 
 				check_part_size "rootA"
 				if [ $? -ne 0 ]; then
-					msg_warn="${msg_warn}\n! (${TARGET_DISK_SET}3) rootA partition - Resized\n"
+					msg_warn="${msg_warn}\n! (${u2up_TARGET_DISK}3) rootA partition - Resized\n"
 					((msg_size+=2))
 					((disk_change_needed+=1))
 				fi
 			fi
 		fi
 		cat >> $U2UP_TARGET_DISK_SFDISK_BASH << EOF
-echo "/dev/${TARGET_DISK_SET}3 : size= ${part_sectors}, type=${PART_TYPE_LINUX}" >> $U2UP_TARGET_DISK_SFDISK_DUMP
+echo "/dev/${u2up_TARGET_DISK}3 : size= ${part_sectors}, type=${PART_TYPE_LINUX}" >> $U2UP_TARGET_DISK_SFDISK_DUMP
 EOF
 
 #########
 # ROOTB
 #########
 		(( first_sector+=part_sectors ))
-		(( part_sectors=${TARGET_ROOTB_PARTSZ_SET}*${sectors_in_kib}*1024*1024 ))
+		(( part_sectors=${u2up_TARGET_ROOTB_PARTSZ}*${sectors_in_kib}*1024*1024 ))
 		# Warn, if ROOTB partition MISSING: 
-		if [ $(cat $U2UP_TARGET_DISK_SFDISK_DUMP | grep "/dev/${TARGET_DISK_SET}4" | wc -l) -eq 0 ]; then
-			msg_warn="${msg_warn}\n! (${TARGET_DISK_SET}4) rootB partition - Missing\n"
+		if [ $(cat $U2UP_TARGET_DISK_SFDISK_DUMP | grep "/dev/${u2up_TARGET_DISK}4" | wc -l) -eq 0 ]; then
+			msg_warn="${msg_warn}\n! (${u2up_TARGET_DISK}4) rootB partition - Missing\n"
 			((msg_size+=2))
 			((disk_change_needed+=1))
 		else
 		# Warn, if ROOTB partition NOT LINUX: 
 			check_part_type "Linux" "rootB"
 			if [ $? -ne 0 ]; then
-				msg_warn="${msg_warn}\n! (${TARGET_DISK_SET}4) rootB partition - Not Linux type\n"
+				msg_warn="${msg_warn}\n! (${u2up_TARGET_DISK}4) rootB partition - Not Linux type\n"
 				((msg_size+=2))
 				((disk_change_needed+=1))
 			else
 		# Warn, if ROOTB partition NOT SIZED: 
 				check_part_size "rootB"
 				if [ $? -ne 0 ]; then
-					msg_warn="${msg_warn}\n! (${TARGET_DISK_SET}4) rootB partition - Resized\n"
+					msg_warn="${msg_warn}\n! (${u2up_TARGET_DISK}4) rootB partition - Resized\n"
 					((msg_size+=2))
 					((disk_change_needed+=1))
 				fi
 			fi
 		fi
 		cat >> $U2UP_TARGET_DISK_SFDISK_BASH << EOF
-echo "/dev/${TARGET_DISK_SET}4 : size= ${part_sectors}, type=${PART_TYPE_LINUX}" >> $U2UP_TARGET_DISK_SFDISK_DUMP
+echo "/dev/${u2up_TARGET_DISK}4 : size= ${part_sectors}, type=${PART_TYPE_LINUX}" >> $U2UP_TARGET_DISK_SFDISK_DUMP
 EOF
 
 		if [ $disk_change_needed -ne 0 ]; then
@@ -626,7 +626,7 @@ EOF
 			msg_warn="${msg_warn}\n=> Partition table is going to be changed and ALL TARGET DATA LOST!\n"
 			((msg_size+=5))
 			cat >> $U2UP_TARGET_DISK_SFDISK_BASH << EOF
-sfdisk /dev/${TARGET_DISK_SET} < $U2UP_TARGET_DISK_SFDISK_DUMP
+sfdisk /dev/${u2up_TARGET_DISK} < $U2UP_TARGET_DISK_SFDISK_DUMP
 EOF
 		else
 			rm -f ${U2UP_TARGET_DISK_SFDISK_BASH}
@@ -659,7 +659,7 @@ EOF
 				return 1 # To skip additional "success" message!
 			else
 				msg_warn="${msg_warn}\n=> You are about to install new system on disk partition:"
-				msg_warn="${msg_warn}\n=> [${TARGET_PART_SET} - ${root_part_label}]\n"
+				msg_warn="${msg_warn}\n=> [${u2up_TARGET_PART} - ${root_part_label}]\n"
 				msg_warn="${msg_warn}\nDo you really want to continue?"
 				((msg_size+=5))
 				display_yesno "${action_name} warning" "${msg_fdisk}${msg_warn}" $msg_size
@@ -689,7 +689,7 @@ proceed_target_repartition() {
 			display_result "Re-partition" "Failed to re-partition disk!"
 			return 1
 		fi
-		sfdisk -V /dev/${TARGET_DISK_SET}
+		sfdisk -V /dev/${u2up_TARGET_DISK}
 		if [ $? -ne 0 ]; then
 			echo "press enter to continue..." >&2
 			read
@@ -732,7 +732,7 @@ display_target_partsizes_submenu() {
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
-	local target_disk_current=$TARGET_DISK_SET
+	local target_disk_current=$u2up_TARGET_DISK
 
 	while true; do
 		exec 3>&1
@@ -763,16 +763,16 @@ display_target_partsizes_submenu() {
 		esac
 
 		current_item="$(get_item_selection $selection)"
-		current_set="$(store_target_partsize_selection ${U2UP_CONF_DIR} $selection)"
+		current_set="$(save_u2up_target_partsize_selection ${U2UP_CONF_DIR} $selection)"
 		if [ -n "$current_set" ]; then
 			#Resize pressed: set new dialog values
 			eval $current_set
 		else
 			#Ok
-			store_target_partsize_selection ${U2UP_CONF_DIR} "boot :${target_boot_partsz_current}"
-			store_target_partsize_selection ${U2UP_CONF_DIR} "log :${target_log_partsz_current}"
-			store_target_partsize_selection ${U2UP_CONF_DIR} "rootA :${target_rootA_partsz_current}"
-			store_target_partsize_selection ${U2UP_CONF_DIR} "rootB :${target_rootB_partsz_current}"
+			save_u2up_target_partsize_selection ${U2UP_CONF_DIR} "boot :${target_boot_partsz_current}"
+			save_u2up_target_partsize_selection ${U2UP_CONF_DIR} "log :${target_log_partsz_current}"
+			save_u2up_target_partsize_selection ${U2UP_CONF_DIR} "rootA :${target_rootA_partsz_current}"
+			save_u2up_target_partsize_selection ${U2UP_CONF_DIR} "rootB :${target_rootB_partsz_current}"
 			execute_target_repartition
 			return $?
 		fi
@@ -811,13 +811,13 @@ display_target_hostname_submenu() {
 		esac
 
 		current_item="$(get_item_selection $selection)"
-		current_set="$(store_target_hostname_selection ${U2UP_CONF_DIR} $selection)"
+		current_set="$(save_u2up_target_hostname_selection ${U2UP_CONF_DIR} $selection)"
 		if [ -n "$current_set" ]; then
 			#Resize pressed: set new dialog values
 			eval $current_set
 		else
 			#Ok
-			store_target_hostname_selection ${U2UP_CONF_DIR} "Hostname: ${target_hostname_current}"
+			save_u2up_target_hostname_selection ${U2UP_CONF_DIR} "Hostname: ${target_hostname_current}"
 			(( rv+=$? ))
 			return $rv
 		fi
@@ -856,50 +856,50 @@ display_target_admin_submenu() {
 		esac
 
 		current_item="$(get_item_selection $selection)"
-		current_set="$(store_target_admin_selection ${U2UP_CONF_DIR} $selection)"
+		current_set="$(save_u2up_target_admin_selection ${U2UP_CONF_DIR} $selection)"
 		if [ -n "$current_set" ]; then
 			#Resize pressed: set new dialog values
 			eval $current_set
 		else
 			#Ok
-			store_target_admin_selection ${U2UP_CONF_DIR} "Admin name: ${target_admin_name_current}"
+			save_u2up_target_admin_selection ${U2UP_CONF_DIR} "Admin name: ${target_admin_name_current}"
 			(( rv+=$? ))
 			return $rv
 		fi
 	done
 }
 
-execute_net_reconfiguration() {
-	local TARGET_ROOT_PATH_PREFIX=$1
-	local NET_INTERNAL_IFNAME=""
-	local NET_INTERNAL_ADDR_MASK=""
-	local NET_INTERNAL_GW=""
-	local NET_DNS=""
-	local NET_DOMAINS=""
-	local rv=1
-	if [ -z "$TARGET_ROOT_PATH_PREFIX" ]; then
-		return $rv
-	fi
-	check_network_configuration
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	if [ -f "${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
-		source ${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
-	fi
-	cat > ${TARGET_ROOT_PATH_PREFIX}etc/systemd/network/10-internal-static.network << EOF
-[Match]
-Name=${NET_INTERNAL_IFNAME_SET}
-
-[Network]
-Address=${NET_INTERNAL_ADDR_MASK_SET}
-Gateway=${NET_INTERNAL_GW_SET}
-DNS=${NET_DNS_SET}
-Domains=${NET_DOMAINS_SET}
-EOF
-	return $rv
-}
+#execute_net_reconfiguration() {
+#	local TARGET_ROOT_PATH_PREFIX=$1
+#	local NET_INTERNAL_IFNAME=""
+#	local NET_INTERNAL_ADDR_MASK=""
+#	local NET_INTERNAL_GW=""
+#	local NET_DNS=""
+#	local NET_DOMAINS=""
+#	local rv=1
+#	if [ -z "$TARGET_ROOT_PATH_PREFIX" ]; then
+#		return $rv
+#	fi
+#	check_network_configuration
+#	rv=$?
+#	if [ $rv -ne 0 ]; then
+#		return $rv
+#	fi
+#	if [ -f "${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
+#		source ${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
+#	fi
+#	cat > ${TARGET_ROOT_PATH_PREFIX}etc/systemd/network/10-internal-static.network << EOF
+#[Match]
+#Name=${u2up_NET_INTERNAL_IFNAME}
+#
+#[Network]
+#Address=${u2up_NET_INTERNAL_ADDR_MASK}
+#Gateway=${u2up_NET_INTERNAL_GW}
+#DNS=${u2up_NET_DNS}
+#Domains=${u2up_NET_DOMAINS}
+#EOF
+#	return $rv
+#}
 
 display_install_repo_config_submenu() {
 	local current_set=""
@@ -939,92 +939,18 @@ display_install_repo_config_submenu() {
 		esac
 
 		current_item="$(get_item_selection $selection)"
-		current_set="$(store_install_repo_selection ${U2UP_CONF_DIR} $selection)"
+		current_set="$(save_u2up_install_repo_selection ${U2UP_CONF_DIR} $selection)"
 		if [ -n "$current_set" ]; then
 			#Resize pressed: set new dialog values
 			eval $current_set
 		else
 			#Ok
-			store_install_repo_selection ${U2UP_CONF_DIR} "Base URL: ${install_repo_base_url_current}"
+			save_u2up_install_repo_selection ${U2UP_CONF_DIR} "Base URL: ${install_repo_base_url_current}"
 			(( rv+=$? ))
 			return $rv
 		fi
 	done
 }
-
-check_create_filesystems() {
-	local TARGET_DISK_SET=""
-	local TARGET_PART_SET=""
-	local fstype=""
-	local rv=1
-
-	if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
-		source ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
-	fi
-	if [ -z "$TARGET_DISK_SET" ] || [ -z "TARGET_PART_SET" ]; then
-		return $rv
-	fi
-	# Installation partition:
-	echo "Allways re-create EXT4 filesystem on installation partition /dev/$TARGET_PART_SET:" >&2
-	umount -f /mnt >&2
-	mkfs.ext4 -F /dev/$TARGET_PART_SET >&2
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-	echo -e "OK!\n" >&2
-	# Boot partition:
-	echo "Check / re-create VFAT filesystem on \"boot\" partition /dev/${TARGET_DISK_SET}1:" >&2
-	fstype="$(lsblk -fr /dev/${TARGET_DISK_SET}1 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
-	if [ -z "$fstype" ] || [ "$fstype" != "vfat" ]; then
-		echo "Recreate:" >&2
-		mkfs.vfat -F /dev/${TARGET_DISK_SET}1 >&2
-		rv=$?
-		if [ $rv -ne 0 ]; then
-			return $rv
-		fi
-	fi
-	echo -e "OK!\n" >&2
-	# Log partition:
-	echo "Check / re-create EXT4 filesystem on \"log\" partition /dev/${TARGET_DISK_SET}1:" >&2
-	fstype="$(lsblk -fr /dev/${TARGET_DISK_SET}2 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
-	if [ -z "$fstype" ] || [ "$fstype" != "ext4" ]; then
-		echo "Recreate:" >&2
-		mkfs.ext4 -F /dev/${TARGET_DISK_SET}2 >&2
-		rv=$?
-		if [ $rv -ne 0 ]; then
-			return $rv
-		fi
-	fi
-	echo -e "OK!\n" >&2
-	# RootA partition:
-	echo "Check / re-create EXT4 filesystem on \"rootA\" partition /dev/${TARGET_DISK_SET}1:" >&2
-	fstype="$(lsblk -fr /dev/${TARGET_DISK_SET}3 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
-	if [ -z "$fstype" ] || [ "$fstype" != "ext4" ]; then
-		echo "Recreate:" >&2
-		mkfs.ext4 -F /dev/${TARGET_DISK_SET}3 >&2
-		rv=$?
-		if [ $rv -ne 0 ]; then
-			return $rv
-		fi
-	fi
-	echo -e "OK!\n" >&2
-	# RootB partition:
-	echo "Check / re-create EXT4 filesystem on \"rootB\" partition /dev/${TARGET_DISK_SET}1:" >&2
-	fstype="$(lsblk -fr /dev/${TARGET_DISK_SET}4 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
-	if [ -z "$fstype" ] || [ "$fstype" != "ext4" ]; then
-		echo "Recreate:" >&2
-		mkfs.ext4 -F /dev/${TARGET_DISK_SET}4 >&2
-		rv=$?
-		if [ $rv -ne 0 ]; then
-			return $rv
-		fi
-	fi
-	echo -e "OK!\n" >&2
-	rv=0
-	return $rv
-}
-
 
 configure_default_boot_entry() {
 	local target_disk=""
@@ -1066,8 +992,8 @@ configure_default_boot_entry() {
 }
 
 proceed_target_install() {
-	local TARGET_DISK_SET=""
-	local TARGET_PART_SET=""
+	local u2up_TARGET_DISK=""
+	local u2up_TARGET_PART=""
 	local root_part_suffix=""
 	local msg=""
 	local rv=0
@@ -1075,37 +1001,37 @@ proceed_target_install() {
 	if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
 		source ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 	fi
-	if [ $rv -eq 0 ] && [ -z "$TARGET_DISK_SET" ]; then
+	if [ $rv -eq 0 ] && [ -z "$u2up_TARGET_DISK" ]; then
 		msg="Target disk not defined!"
 		rv=1
 	fi
-	if [ $rv -eq 0 ] && [ -z "$TARGET_PART_SET" ]; then
+	if [ $rv -eq 0 ] && [ -z "$u2up_TARGET_PART" ]; then
 		msg="Target disk paritition not defined!"
 		rv=1
 	fi
 	if [ $rv -eq 0 ]; then
-		root_part_suffix="$(get_root_label_suffix ${TARGET_DISK_SET} ${TARGET_PART_SET})"
+		root_part_suffix="$(get_root_label_suffix ${u2up_TARGET_DISK} ${u2up_TARGET_PART})"
 		if [ -z "$root_part_suffix" ]; then
 			msg="Target root_part_suffix not defined!"
 			rv=1
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		check_create_filesystems $TARGET_DISK_SET $TARGET_PART_SET
+		check_create_filesystems $u2up_TARGET_DISK $u2up_TARGET_PART
 		rv=$?
 		if [ $rv -ne 0 ]; then
 			msg="Failed checking / creating filesystems!"
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		mount_installation_filesystem $TARGET_DISK_SET $TARGET_PART_SET $root_part_suffix
+		mount_installation_filesystem $u2up_TARGET_DISK $u2up_TARGET_PART $root_part_suffix
 		rv=$?
 		if [ $rv -ne 0 ]; then
 			msg="Failed mounting installation filesystem!"
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		extract_rootfs_from_images_bundle $TARGET_DISK_SET $TARGET_PART_SET $root_part_suffix
+		extract_rootfs_from_images_bundle $u2up_TARGET_DISK $u2up_TARGET_PART $root_part_suffix
 		rv=$?
 		if [ $rv -ne 0 ]; then
 			msg="Failed extracting root filesystem archive from images bundle!"
@@ -1206,15 +1132,15 @@ main_loop () {
 	local current_tag='1'
 	local root_part_label=""
 	local net_internal_mac=""
-	local KEYMAP_SET=""
-	local TARGET_DISK_SET=""
-	local TARGET_PART_SET=""
-	local TARGET_BOOT_PARTSZ_SET=""
-	local TARGET_LOG_PARTSZ_SET=""
-	local TARGET_ROOTA_PARTSZ_SET=""
-	local TARGET_ROOTB_PARTSZ_SET=""
-	local TARGET_HOSTNAME_SET=""
-	local TARGET_ADMIN_NAME_SET=""
+	local u2up_KEYMAP=""
+	local u2up_TARGET_DISK=""
+	local u2up_TARGET_PART=""
+	local u2up_TARGET_BOOT_PARTSZ=""
+	local u2up_TARGET_LOG_PARTSZ=""
+	local u2up_TARGET_ROOTA_PARTSZ=""
+	local u2up_TARGET_ROOTB_PARTSZ=""
+	local u2up_TARGET_HOSTNAME=""
+	local u2up_TARGET_ADMIN_NAME=""
 	local NET_INTERNAL_IFNAME=""
 	local NET_INTERNAL_ADDR_MASK=""
 	local NET_INTERNAL_GW=""
@@ -1229,7 +1155,7 @@ main_loop () {
 		if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
 			source ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
 		fi
-		root_part_label="$(get_root_label ${TARGET_DISK_SET} ${TARGET_PART_SET})"
+		root_part_label="$(get_root_label ${u2up_TARGET_DISK} ${u2up_TARGET_PART})"
 		if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE}" ]; then
 			source ${U2UP_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE}
 		fi
@@ -1240,8 +1166,8 @@ main_loop () {
 			source ${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
 		fi
 		net_internal_mac=""
-		if [ -n "${NET_INTERNAL_IFNAME_SET}" ]; then
-			net_internal_mac="$(ip link show dev $NET_INTERNAL_IFNAME_SET | grep "link\/ether" | sed 's/ *link\/ether *//' | sed 's/ .*//')"
+		if [ -n "${u2up_NET_INTERNAL_IFNAME}" ]; then
+			net_internal_mac="$(ip link show dev $u2up_NET_INTERNAL_IFNAME | grep "link\/ether" | sed 's/ *link\/ether *//' | sed 's/ .*//')"
 		fi
 		if [ -f "${U2UP_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
 			source ${U2UP_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}
@@ -1255,20 +1181,20 @@ main_loop () {
 			--cancel-label "Exit" \
 			--default-item $current_tag \
 			--menu "Please select:" $HEIGHT $WIDTH 10 \
-			"1" "Keyboard mapping [${KEYMAP_SET}]" \
-			"2" "Target disk [${TARGET_DISK_SET}]" \
+			"1" "Keyboard mapping [${u2up_KEYMAP}]" \
+			"2" "Target disk [${u2up_TARGET_DISK}]" \
 			"3" "Disk partitions \
-[boot:${TARGET_BOOT_PARTSZ_SET}G] \
-[log:${TARGET_LOG_PARTSZ_SET}G] \
-[rootA:${TARGET_ROOTA_PARTSZ_SET}G] \
-[rootB:${TARGET_ROOTB_PARTSZ_SET}G]" \
-			"4" "Hostname [${TARGET_HOSTNAME_SET}]" \
-			"5" "Administrator [${TARGET_ADMIN_NAME_SET}]" \
-			"6" "Network internal interface [${NET_INTERNAL_IFNAME_SET} - ${net_internal_mac}]" \
-			"7" "Static network configuration [${NET_INTERNAL_ADDR_MASK_SET}]" \
-			"8" "Installation packages repo [${INSTALL_REPO_BASE_URL_SET}]" \
-			"9" "Installation partition [${TARGET_PART_SET} - ${root_part_label}]" \
-			"10" "Install (${U2UP_IMAGE_ROOTFS_DTS})" \
+[boot:${u2up_TARGET_BOOT_PARTSZ}G] \
+[log:${u2up_TARGET_LOG_PARTSZ}G] \
+[rootA:${u2up_TARGET_ROOTA_PARTSZ}G] \
+[rootB:${u2up_TARGET_ROOTB_PARTSZ}G]" \
+			"4" "Hostname [${u2up_TARGET_HOSTNAME}]" \
+			"5" "Administrator [${u2up_TARGET_ADMIN_NAME}]" \
+			"6" "Network internal interface [${u2up_NET_INTERNAL_IFNAME} - ${net_internal_mac}]" \
+			"7" "Static network configuration [${u2up_NET_INTERNAL_ADDR_MASK}]" \
+			"8" "Installation packages repo [${u2up_INSTALL_REPO_BASE_URL}]" \
+			"9" "Installation partition [${u2up_TARGET_PART} - ${root_part_label}]" \
+			"10" "Install (${U2UP_IMAGE_ROOTFS_DATETIME})" \
 		2>&1 1>&3)
 		exit_status=$?
 		exec 3>&-
@@ -1294,91 +1220,92 @@ main_loop () {
 			;;
 		1)
 			display_keymap_submenu \
-				$KEYMAP_SET
+				$u2up_KEYMAP
 			;;
 		2)
 			display_target_disk_submenu \
-				$TARGET_DISK_SET
+				$u2up_TARGET_DISK
 			;;
 		3)
-			local target_boot_partsz_old=$TARGET_BOOT_PARTSZ_SET
-			local target_log_partsz_old=$TARGET_LOG_PARTSZ_SET
-			local target_rootA_partsz_old=$TARGET_ROOTA_PARTSZ_SET
-			local target_rootB_partsz_old=$TARGET_ROOTB_PARTSZ_SET
+			local target_boot_partsz_old=$u2up_TARGET_BOOT_PARTSZ
+			local target_log_partsz_old=$u2up_TARGET_LOG_PARTSZ
+			local target_rootA_partsz_old=$u2up_TARGET_ROOTA_PARTSZ
+			local target_rootB_partsz_old=$u2up_TARGET_ROOTB_PARTSZ
 			display_target_partsizes_submenu \
-				$TARGET_BOOT_PARTSZ_SET \
-				$TARGET_LOG_PARTSZ_SET \
-				$TARGET_ROOTA_PARTSZ_SET \
-				$TARGET_ROOTB_PARTSZ_SET
+				$u2up_TARGET_BOOT_PARTSZ \
+				$u2up_TARGET_LOG_PARTSZ \
+				$u2up_TARGET_ROOTA_PARTSZ \
+				$u2up_TARGET_ROOTB_PARTSZ
 			rv=$?
 			if [ $rv -ne 0 ]; then
 				# Restore old partition sizes
-				store_target_partsize_selection ${U2UP_CONF_DIR} "boot :${target_boot_partsz_old}"
-				store_target_partsize_selection ${U2UP_CONF_DIR} "log :${target_log_partsz_old}"
-				store_target_partsize_selection ${U2UP_CONF_DIR} "rootA :${target_rootA_partsz_old}"
-				store_target_partsize_selection ${U2UP_CONF_DIR} "rootB :${target_rootB_partsz_old}"
+				save_u2up_target_partsize_selection ${U2UP_CONF_DIR} "boot :${target_boot_partsz_old}"
+				save_u2up_target_partsize_selection ${U2UP_CONF_DIR} "log :${target_log_partsz_old}"
+				save_u2up_target_partsize_selection ${U2UP_CONF_DIR} "rootA :${target_rootA_partsz_old}"
+				save_u2up_target_partsize_selection ${U2UP_CONF_DIR} "rootB :${target_rootB_partsz_old}"
 			fi
 			;;
 		4)
-			local target_hostname_old=$TARGET_HOSTNAME_SET
+			local target_hostname_old=$u2up_TARGET_HOSTNAME
 			display_target_hostname_submenu \
-				$TARGET_HOSTNAME_SET
+				$u2up_TARGET_HOSTNAME
 			;;
 		5)
-			local target_admin_name_old=$TARGET_ADMIN_NAME_SET
+			local target_admin_name_old=$u2up_TARGET_ADMIN_NAME
 			display_target_admin_submenu \
-				$TARGET_ADMIN_NAME_SET
+				$u2up_TARGET_ADMIN_NAME
 			;;
 		6)
 			display_net_internal_ifname_submenu \
-				$NET_INTERNAL_IFNAME_SET
+				$u2up_NET_INTERNAL_IFNAME
 			;;
 		7)
-			local net_internal_addr_mask_old=$NET_INTERNAL_ADDR_MASK_SET
-			local net_internal_gw_old=$NET_INTERNAL_GW_SET
-			local net_dns_old=$NET_DNS_SET
-			local net_domains_old=$NET_DOMAINS_SET
+			local net_internal_addr_mask_old=$u2up_NET_INTERNAL_ADDR_MASK
+			local net_internal_gw_old=$u2up_NET_INTERNAL_GW
+			local net_dns_old=$u2up_NET_DNS
+			local net_domains_old=$u2up_NET_DOMAINS
 			display_net_config_submenu \
 				$U2UP_CONF_DIR \
-				$NET_INTERNAL_ADDR_MASK_SET \
-				$NET_INTERNAL_GW_SET \
-				$NET_DNS_SET \
-				$NET_DOMAINS_SET
+				$u2up_NET_INTERNAL_ADDR_MASK \
+				$u2up_NET_INTERNAL_GW \
+				$u2up_NET_DNS \
+				$u2up_NET_DOMAINS
 			rv=$?
 			if [ $rv -ne 0 ]; then
 				# Restore old network configuration
 				if [ -n "${net_internal_addr_mask_old}" ]; then
-					store_net_config_selection ${U2UP_CONF_DIR} "IP address/mask: ${net_internal_addr_mask_old}"
+					save_u2up_net_config_selection ${U2UP_CONF_DIR} "IP address/mask: ${net_internal_addr_mask_old}"
 				fi
 				if [ -n "${net_internal_gw_old}" ]; then
-					store_net_config_selection ${U2UP_CONF_DIR} "IP gateway: ${net_internal_gw_old}"
+					save_u2up_net_config_selection ${U2UP_CONF_DIR} "IP gateway: ${net_internal_gw_old}"
 				fi
 				if [ -n "${net_dns_old}" ]; then
-					store_net_config_selection ${U2UP_CONF_DIR} "DNS: ${net_dns_old}"
+					save_u2up_net_config_selection ${U2UP_CONF_DIR} "DNS: ${net_dns_old}"
 				fi
 				if [ -n "${net_domains_old}" ]; then
-					store_net_config_selection ${U2UP_CONF_DIR} "Domains: ${net_domains_old}"
+					save_u2up_net_config_selection ${U2UP_CONF_DIR} "Domains: ${net_domains_old}"
 				fi
 			else
-				execute_net_reconfiguration "/"
+#				execute_net_reconfiguration "/"
+				enable_u2up_net_config_selection
 			fi
 			;;
 		8)
-			local install_repo_base_url_old=$INSTALL_REPO_BASE_URL_SET
+			local install_repo_base_url_old=$u2up_INSTALL_REPO_BASE_URL
 			display_install_repo_config_submenu \
-				$INSTALL_REPO_BASE_URL_SET
+				$u2up_INSTALL_REPO_BASE_URL
 			rv=$?
 			if [ $rv -ne 0 ]; then
 				# Restore old installation packages repo configuration
 				if [ -n "${install_repo_base_url_old}" ]; then
-					store_install_repo_selection ${U2UP_CONF_DIR} "Base URL: ${install_repo_base_url_old}"
+					save_u2up_install_repo_selection ${U2UP_CONF_DIR} "Base URL: ${install_repo_base_url_old}"
 				fi
 			fi
 			;;
 		9)
 			display_target_part_submenu \
-				$TARGET_DISK_SET \
-				$TARGET_PART_SET
+				$u2up_TARGET_DISK \
+				$u2up_TARGET_PART
 			;;
 		10)
 			execute_target_install
@@ -1389,7 +1316,7 @@ main_loop () {
 
 check_images_bundle_initial_content
 echo "Rootfs Archive-Name: ${U2UP_IMAGE_ROOTFS_NAME}" >&2
-echo "Rootfs Date-TimeStemp: ${U2UP_IMAGE_ROOTFS_DTS}" >&2
+echo "Rootfs Date-Time Stamp: ${U2UP_IMAGE_ROOTFS_DATETIME}" >&2
 echo >&2
 echo "press enter to continue..." >&2
 read
@@ -1398,7 +1325,7 @@ if [ -z "${U2UP_IMAGE_ROOTFS_NAME}" ]; then
 	echo "Terminating: Unknown rootfs archive-name!" >&2
 	exit 1
 fi
-if [ -z "${U2UP_IMAGE_ROOTFS_DTS}" ]; then
+if [ -z "${U2UP_IMAGE_ROOTFS_DATETIME}" ]; then
 	echo "Terminating: Unknown rootfs date-timestamp!" >&2
 	exit 1
 fi

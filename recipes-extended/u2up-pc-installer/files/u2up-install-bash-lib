@@ -5,6 +5,12 @@
 #set -xe
 
 U2UP_INSTALL_BASH_LIB_SOURCED=yes
+
+############################
+#                          #
+# Common U2UP definitions! #
+#                          #
+############################
 U2UP_CONF_DIR="/etc/u2up-conf.d"
 if [ ! -d "${U2UP_CONF_DIR}" ]; then
 	rm -rf $U2UP_CONF_DIR
@@ -29,7 +35,7 @@ U2UP_IMAGES_BUNDLE_ARCHIVE_SUM=${U2UP_IMAGES_BUNDLE_NAME}.tar.sha256
 
 #U2UP_FS_IMAGE_ARCHIVE=u2up-homegw-image-full-cmdline
 U2UP_IMAGE_ROOTFS_NAME=""
-U2UP_IMAGE_ROOTFS_DTS=""
+U2UP_IMAGE_ROOTFS_DATETIME=""
 #U2UP_KERNEL_MODULES_ARCHIVE=modules
 U2UP_KERNEL_IMAGE=bzImage
 U2UP_INITRD_IMAGE=microcode
@@ -49,6 +55,11 @@ U2UP_TARGET_DISK_SFDISK_DUMP=${U2UP_TEMP_DIR}/u2up_target_disk-sfdisk_dump
 PART_TYPE_EFI="C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
 PART_TYPE_LINUX="0FC63DAF-8483-4772-8E79-3D69D8477DE4"
 
+######################################
+#                                    #
+# U2UP target BOOT helper functions! #
+#                                    #
+######################################
 get_boot_label() {
 	local boot_label=$1
 	local boot_label_conf=
@@ -93,19 +104,24 @@ set_default_boot() {
 	return $rv
 }
 
+######################################
+#                                    #
+# U2UP target ROOT helper functions! #
+#                                    #
+######################################
 get_current_target_disk() {
-	local TARGET_DISK_SET=""
+	local u2up_TARGET_DISK=""
 	if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
 		source $U2UP_CONF_DIR/$U2UP_TARGET_DISK_CONF_FILE
-		echo -n "${TARGET_DISK_SET}"
+		echo -n "${u2up_TARGET_DISK}"
 	fi
 }
 
 get_current_target_part() {
-	local TARGET_PART_SET=""
+	local u2up_TARGET_PART=""
 	if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
 		source $U2UP_CONF_DIR/$U2UP_TARGET_DISK_CONF_FILE
-		echo -n "${TARGET_PART_SET}"
+		echo -n "${u2up_TARGET_PART}"
 	fi
 }
 
@@ -172,23 +188,28 @@ get_root_label() {
 	return 1
 }
 
-set_target_done_for() {
-	local file=${1}
-	local new_target_done=${2:-0}
-	local rv=1
-	if [ -z "$file" ] || [ ! -e "$file" ]; then
-		return $rv
-	fi
-	cat ${file} | grep -v "TARGET_DONE=" > ${file}_tmp
-	rv=$?
-	echo "TARGET_DONE=${new_target_done}" >> ${file}_tmp
-	(( rv+=$? ))
-	mv ${file}_tmp ${file}
-	(( rv+=$? ))
-	return $rv
-}
+#set_target_done_for() {
+#	local file=${1}
+#	local new_target_done=${2:-0}
+#	local rv=1
+#	if [ -z "$file" ] || [ ! -e "$file" ]; then
+#		return $rv
+#	fi
+#	cat ${file} | grep -v "TARGET_DONE=" > ${file}_tmp
+#	rv=$?
+#	echo "TARGET_DONE=${new_target_done}" >> ${file}_tmp
+#	(( rv+=$? ))
+#	mv ${file}_tmp ${file}
+#	(( rv+=$? ))
+#	return $rv
+#}
 
-store_keymap_selection() {
+###########################################
+#                                         #
+# SAVE functions for U2UP configurations! #
+#                                         #
+###########################################
+save_u2up_keymap_selection() {
 	local rv=1
 	local keymap=$1
 	local conf_dir=${2:-${U2UP_CONF_DIR}}
@@ -200,42 +221,13 @@ store_keymap_selection() {
 		loadkeys -p $keymap 2> /dev/null
 		rv=$?
 		if [ $rv -eq 0 ]; then
-			echo "KEYMAP_SET=$keymap" > ${conf_dir}/${U2UP_KEYMAP_CONF_FILE}
-			echo "TARGET_DONE=0" >> ${conf_dir}/${U2UP_KEYMAP_CONF_FILE}
+			echo "u2up_KEYMAP=$keymap" > ${conf_dir}/${U2UP_KEYMAP_CONF_FILE}
 		fi
 	fi
 	return $rv
 }
 
-enable_keymap_selection() {
-	local rv=1
-	local KEYMAP_SET=""
-	local TARGET_DONE=0
-	local new_target_done=${1:-0}
-	local root_path_prefix=${2:-"/"}
-	local conf_dir=${3:-${U2UP_CONF_DIR}}
-
-	if [ "${root_path_prefix}" = "/" ]; then
-		root_path_prefix=""
-	fi
-
-	if [ ! -f "${root_path_prefix}${conf_dir}/${U2UP_KEYMAP_CONF_FILE}" ]; then
-		return 1
-	fi
-	source ${root_path_prefix}${conf_dir}/${U2UP_KEYMAP_CONF_FILE}
-	if [ -n "$KEYMAP_SET" ] && [ $TARGET_DONE -eq 0 ]; then
-		loadkeys $KEYMAP_SET
-		rv=$?
-		if [ $rv -eq 0 ]; then
-			echo "KEYMAP=$KEYMAP_SET" > ${root_path_prefix}/etc/vconsole.conf
-			set_target_done_for ${root_path_prefix}${conf_dir}/${U2UP_KEYMAP_CONF_FILE} ${new_target_done}
-			rv=$?
-		fi
-	fi
-	return $rv
-}
-
-store_target_disk_selection() {
+save_u2up_target_disk_selection() {
 	local rv=1
 	local disk=$1
 	local conf_dir=${2:-${U2UP_CONF_DIR}}
@@ -243,9 +235,9 @@ store_target_disk_selection() {
 	if [ ! -d "${conf_dir}" ]; then
 		return 1
 	fi
-	cat ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE} | grep -v "TARGET_DISK_SET=" > ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
+	cat ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE} | grep -v "u2up_TARGET_DISK=" > ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
 	if [ -n "$disk" ]; then
-		echo "TARGET_DISK_SET=$disk" >> ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
+		echo "u2up_TARGET_DISK=$disk" >> ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
 	else
 		return 1
 	fi
@@ -254,14 +246,14 @@ store_target_disk_selection() {
 	return $rv
 }
 
-store_target_part_selection() {
+save_u2up_target_part_selection() {
 	local rv=1
 	local part=$1
 	local conf_dir=${2:-${U2UP_CONF_DIR}}
 
-	cat ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE} | grep -v "TARGET_PART_SET=" > ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
+	cat ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE} | grep -v "u2up_TARGET_PART=" > ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
 	if [ -n "$part" ]; then
-		echo "TARGET_PART_SET=$part" >> ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
+		echo "u2up_TARGET_PART=$part" >> ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
 	else
 		return 1
 	fi
@@ -270,7 +262,7 @@ store_target_part_selection() {
 	return $rv
 }
 
-store_target_partsize_selection() {
+save_u2up_target_partsize_selection() {
 	local rv=1
 	local var_target_partsz_set=""
 	local var_target_partsz_current=""
@@ -287,19 +279,19 @@ store_target_partsize_selection() {
 	fi
 	case $part in
 	boot)
-		var_target_partsz_set=TARGET_BOOT_PARTSZ_SET
+		var_target_partsz_set=u2up_TARGET_BOOT_PARTSZ
 		var_target_partsz_current=target_boot_partsz_current
 		;;
 	log)
-		var_target_partsz_set=TARGET_LOG_PARTSZ_SET
+		var_target_partsz_set=u2up_TARGET_LOG_PARTSZ
 		var_target_partsz_current=target_log_partsz_current
 		;;
 	rootA)
-		var_target_partsz_set=TARGET_ROOTA_PARTSZ_SET
+		var_target_partsz_set=u2up_TARGET_ROOTA_PARTSZ
 		var_target_partsz_current=target_rootA_partsz_current
 		;;
 	rootB)
-		var_target_partsz_set=TARGET_ROOTB_PARTSZ_SET
+		var_target_partsz_set=u2up_TARGET_ROOTB_PARTSZ
 		var_target_partsz_current=target_rootB_partsz_current
 		;;
 	*)
@@ -314,7 +306,7 @@ store_target_partsize_selection() {
 	return $rv
 }
 
-store_net_internal_iface_selection() {
+save_u2up_net_internal_iface_selection() {
 	local rv=1
 	local ifname=$1
 	local conf_dir=${2:-${U2UP_CONF_DIR}}
@@ -322,9 +314,9 @@ store_net_internal_iface_selection() {
 	if [ ! -d "${conf_dir}" ]; then
 		return 1
 	fi
-	cat ${conf_dir}/${U2UP_NETWORK_CONF_FILE} | grep -v "NET_INTERNAL_IFNAME_SET=" > ${conf_dir}/${U2UP_NETWORK_CONF_FILE}_tmp
+	cat ${conf_dir}/${U2UP_NETWORK_CONF_FILE} | grep -v "u2up_NET_INTERNAL_IFNAME=" > ${conf_dir}/${U2UP_NETWORK_CONF_FILE}_tmp
 	if [ -n "$ifname" ]; then
-		echo "NET_INTERNAL_IFNAME_SET=$ifname" >> ${conf_dir}/${U2UP_NETWORK_CONF_FILE}_tmp
+		echo "u2up_NET_INTERNAL_IFNAME=$ifname" >> ${conf_dir}/${U2UP_NETWORK_CONF_FILE}_tmp
 	else
 		return 1
 	fi
@@ -333,7 +325,7 @@ store_net_internal_iface_selection() {
 	return $rv
 }
 
-store_target_hostname_selection() {
+save_u2up_target_hostname_selection() {
 	local rv=1
 	local var_target_hostname_set=""
 	local var_target_hostname_current=""
@@ -350,7 +342,7 @@ store_target_hostname_selection() {
 	fi
 	case $name in
 	"Hostname")
-		var_target_hostname_set=TARGET_HOSTNAME_SET
+		var_target_hostname_set=u2up_TARGET_HOSTNAME
 		var_target_hostname_current=target_hostname_current
 		;;
 	*)
@@ -365,34 +357,7 @@ store_target_hostname_selection() {
 	return $rv
 }
 
-enable_target_hostname_selection() {
-	local rv=1
-	local TARGET_HOSTNAME_SET=""
-	local TARGET_DONE=0
-	local new_target_done=${1:-0}
-	local root_path_prefix=${2:-"/"}
-	local conf_dir=${3:-${U2UP_CONF_DIR}}
-
-	if [ "${root_path_prefix}" = "/" ]; then
-		root_path_prefix=""
-	fi
-
-	if [ ! -f "${root_path_prefix}${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}" ]; then
-		return 1
-	fi
-	source ${root_path_prefix}${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}
-	if [ -n "$TARGET_HOSTNAME_SET" ] && [ $TARGET_DONE -eq 0 ]; then
-		hostnamectl set-hostname $TARGET_HOSTNAME_SET
-		rv=$?
-		if [ $rv -eq 0 ]; then
-			set_target_done_for ${root_path_prefix}${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE} ${new_target_done}
-			rv=$?
-		fi
-	fi
-	return $rv
-}
-
-store_target_admin_selection() {
+save_u2up_target_admin_selection() {
 	local rv=1
 	local var_target_admin_name_set=""
 	local var_target_admin_name_current=""
@@ -409,7 +374,7 @@ store_target_admin_selection() {
 	fi
 	case $name in
 	"Admin name")
-		var_target_admin_name_set=TARGET_ADMIN_NAME_SET
+		var_target_admin_name_set=u2up_TARGET_ADMIN_NAME
 		var_target_admin_name_current=target_admin_name_current
 		;;
 	*)
@@ -424,55 +389,7 @@ store_target_admin_selection() {
 	return $rv
 }
 
-enable_target_admin_selection() {
-	local rv=1
-	local TARGET_ADMIN_NAME_SET=""
-	local TARGET_DONE=0
-	local new_target_done=${1:-0}
-	local root_path_prefix=${2:-"/"}
-	local conf_dir=${3:-${U2UP_CONF_DIR}}
-
-	if [ "${root_path_prefix}" = "/" ]; then
-		root_path_prefix=""
-	fi
-
-	if [ ! -f "${root_path_prefix}${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}" ]; then
-		return 1
-	fi
-	source ${root_path_prefix}${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}
-	if [ -n "$TARGET_ADMIN_NAME_SET" ] && [ $TARGET_DONE -eq 0 ]; then
-		useradd -m -c "Admin User" $TARGET_ADMIN_NAME_SET
-		rv=$?
-		if [ $rv -ne 0 ] && [ $rv -ne 9 ]; then
-			return 1
-		fi
-		passwd -de $TARGET_ADMIN_NAME_SET
-		rv=$?
-		if [ $rv -ne 0 ]; then
-			return 1
-		fi
-		usermod -aG wheel $TARGET_ADMIN_NAME_SET
-		rv=$?
-		if [ $rv -ne 0 ]; then
-			return 1
-		fi
-		# Locking the root account and scrambling its password!
-		passwd -l root
-		rv=$?
-		if [ $rv -ne 0 ]; then
-			return 1
-		fi
-		usermod -p '!' root
-		rv=$?
-		if [ $rv -eq 0 ]; then
-			set_target_done_for ${root_path_prefix}${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE} ${new_target_done}
-			rv=$?
-		fi
-	fi
-	return $rv
-}
-
-store_net_config_selection() {
+save_u2up_net_config_selection() {
 	local rv=1
 	local var_net_config_set=""
 	local var_net_config_current=""
@@ -489,19 +406,19 @@ store_net_config_selection() {
 	fi
 	case $name in
 	"IP address/mask")
-		var_net_config_set=NET_INTERNAL_ADDR_MASK_SET
+		var_net_config_set=u2up_NET_INTERNAL_ADDR_MASK
 		var_net_config_current=net_internal_addr_mask_current
 		;;
 	"IP gateway")
-		var_net_config_set=NET_INTERNAL_GW_SET
+		var_net_config_set=u2up_NET_INTERNAL_GW
 		var_net_config_current=net_internal_gw_current
 		;;
 	"DNS")
-		var_net_config_set=NET_DNS_SET
+		var_net_config_set=u2up_NET_DNS
 		var_net_config_current=net_dns_current
 		;;
 	"Domains")
-		var_net_config_set=NET_DOMAINS_SET
+		var_net_config_set=u2up_NET_DOMAINS
 		var_net_config_current=net_domains_current
 		;;
 	*)
@@ -516,85 +433,7 @@ store_net_config_selection() {
 	return $rv
 }
 
-enable_net_config_selection() {
-	local rv=0
-	local NET_INTERNAL_IFNAME_SET=""
-	local NET_INTERNAL_ADDR_MASK_SET=""
-	local NET_INTERNAL_GW_SET=""
-	local NET_DNS_SET=""
-	local NET_DOMAINS_SET=""
-	local TARGET_DONE=0
-	local new_target_done=${1:-0}
-	local root_path_prefix=${2:-"/"}
-	local conf_dir=${3:-${U2UP_CONF_DIR}}
-
-	if [ "${root_path_prefix}" = "/" ]; then
-		root_path_prefix=""
-	fi
-
-	if [ ! -f "${root_path_prefix}${conf_dir}/${U2UP_NETWORK_CONF_FILE}" ]; then
-		return 1
-	fi
-	source ${root_path_prefix}${conf_dir}/${U2UP_NETWORK_CONF_FILE}
-	if [ $TARGET_DONE -eq 0 ]; then
-		if [ -n "${NET_INTERNAL_IFNAME_SET}" ] && [ -n "${NET_INTERNAL_ADDR_MASK_SET}" ] && [ -n "${NET_INTERNAL_GW_SET}" ]; then
-			nmcli con add type ethernet con-name internal ifname ${NET_INTERNAL_IFNAME_SET} ip4 ${NET_INTERNAL_ADDR_MASK_SET} gw4 ${NET_INTERNAL_GW_SET}
-			rv=$?
-			if [ $rv -eq 0 ]; then
-				nmcli con mod internal connection.zone trusted
-				rv=$?
-			fi
-		fi
-		if [ $rv -eq 0 ] && [ -n "${NET_DNS_SET}" ]; then
-			nmcli con mod internal ipv4.dns "${NET_DNS_SET}"
-			rv=$?
-		fi
-		if [ $rv -eq 0 ]; then
-			set_target_done_for ${root_path_prefix}${conf_dir}/${U2UP_NETWORK_CONF_FILE} ${new_target_done}
-			rv=$?
-		fi
-	fi
-	return $rv
-}
-
-execute_net_reconfiguration() {
-	local root_path_prefix=${1:-"/"}
-	local conf_dir=${2:-${U2UP_CONF_DIR}}
-	local NET_INTERNAL_IFNAME=""
-	local NET_INTERNAL_ADDR_MASK=""
-	local NET_INTERNAL_GW=""
-	local NET_DNS=""
-	local NET_DOMAINS=""
-	local rv=0
-
-	if [ ! -f "${root_path_prefix}${conf_dir}/${U2UP_NETWORK_CONF_FILE}" ]; then
-		return 1
-	fi
-	source ${root_path_prefix}${conf_dir}/${U2UP_NETWORK_CONF_FILE}
-	if \
-		[ -z "$NET_INTERNAL_IFNAME_SET" ] || \
-		[ -z "$NET_INTERNAL_ADDR_MASK_SET" ] || \
-		[ -z "$NET_INTERNAL_GW_SET" ] || \
-		[ -z "$NET_DNS_SET" ] || \
-		[ -z "$NET_DOMAINS_SET" ];
-	then
-		return 1
-	fi
-	cat > /etc/systemd/network/10-internal-static.network << EOF
-[Match]
-Name=${NET_INTERNAL_IFNAME_SET}
-
-[Network]
-Address=${NET_INTERNAL_ADDR_MASK_SET}
-Gateway=${NET_INTERNAL_GW_SET}
-DNS=${NET_DNS_SET}
-Domains=${NET_DOMAINS_SET}
-EOF
-	rv=$?
-	return $rv
-}
-
-store_install_repo_selection() {
+save_u2up_install_repo_selection() {
 	local rv=1
 	local var_install_repo_set=""
 	local var_install_repo_current=""
@@ -611,7 +450,7 @@ store_install_repo_selection() {
 	fi
 	case $name in
 	"Base URL")
-		var_install_repo_set=INSTALL_REPO_BASE_URL_SET
+		var_install_repo_set=u2up_INSTALL_REPO_BASE_URL
 		var_install_repo_current=install_repo_base_url_current
 		;;
 	*)
@@ -626,46 +465,417 @@ store_install_repo_selection() {
 	return $rv
 }
 
-enable_install_repo_selection() {
-	local rv=0
-	local INSTALL_REPO_BASE_URL_SET=""
-	local TARGET_DONE=0
-	local new_target_done=${1:-0}
-	local root_path_prefix=${2:-"/"}
-	local conf_dir=${3:-${U2UP_CONF_DIR}}
+#############################################
+#                                           #
+# ENABLE functions for U2UP configurations! #
+#                                           #
+#############################################
+#
+# Enable U2UP configured target keymap.
+# (called from installers and chrooted during installation / upgrade)	
+# (TODO: locale settings)
+#
+enable_u2up_keymap_selection() {
+	local rv=1
+	local u2up_KEYMAP=""
+#	local TARGET_DONE=0
+#	local new_target_done=${1:-0}
+	local conf_dir=${1:-${U2UP_CONF_DIR}}
 
-	if [ "${root_path_prefix}" = "/" ]; then
-		root_path_prefix=""
-	fi
-
-	if [ ! -f "${root_path_prefix}${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
+	if [ ! -f "${conf_dir}/${U2UP_KEYMAP_CONF_FILE}" ]; then
 		return 1
 	fi
-	source ${root_path_prefix}${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}
-	if [ $TARGET_DONE -eq 0 ]; then
-		if [ -n "${INSTALL_REPO_BASE_URL_SET}" ]; then
-			mkdir -p ${root_path_prefix}/etc/yum.repos.d
-			echo "[base-repo]" > ${root_path_prefix}/etc/yum.repos.d/base.repo
-			echo "name=Base installation repository" >> ${root_path_prefix}/etc/yum.repos.d/base.repo
-			echo "baseurl=${INSTALL_REPO_BASE_URL_SET}" >> ${root_path_prefix}/etc/yum.repos.d/base.repo
-			echo "enabled=1" >> ${root_path_prefix}/etc/yum.repos.d/base.repo
-			echo "metadata_expire=0" >> ${root_path_prefix}/etc/yum.repos.d/base.repo
-			echo "gpgcheck=0" >> ${root_path_prefix}/etc/yum.repos.d/base.repo
-			set_target_done_for ${root_path_prefix}${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE} ${new_target_done}
+	source ${conf_dir}/${U2UP_KEYMAP_CONF_FILE}
+#	if [ -n "$u2up_KEYMAP" ] && [ $TARGET_DONE -eq 0 ]; then
+	if [ -n "$u2up_KEYMAP" ]; then
+		loadkeys $u2up_KEYMAP
+		rv=$?
+		if [ $rv -eq 0 ]; then
+#			echo "KEYMAP=$u2up_KEYMAP" > /etc/vconsole.conf
+			systemd-firstboot --keymap=$u2up_KEYMAP
 			rv=$?
-		else
-			rm -rf /etc/yum.repos.d
-			rv=$?
+#			set_target_done_for ${conf_dir}/${U2UP_KEYMAP_CONF_FILE} ${new_target_done}
+#			rv=$?
 		fi
 	fi
 	return $rv
 }
 
+#
+# Enable U2UP configured target hostname.
+# (called only chrooted during installation / upgrade)	
+#
+enable_u2up_target_hostname_selection() {
+	local rv=1
+	local u2up_TARGET_HOSTNAME=""
+#	local TARGET_DONE=0
+#	local new_target_done=${1:-0}
+	local conf_dir=${1:-${U2UP_CONF_DIR}}
+
+	if [ ! -f "${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}" ]; then
+		return 1
+	fi
+	source ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}
+#	if [ -n "$u2up_TARGET_HOSTNAME" ] && [ $TARGET_DONE -eq 0 ]; then
+	if [ -n "$u2up_TARGET_HOSTNAME" ]; then
+#		hostnamectl set-hostname $u2up_TARGET_HOSTNAME
+#		systemd-firstboot --hostname=$u2up_TARGET_HOSTNAME
+		echo "${u2up_TARGET_HOSTNAME}" > /etc/hostname
+		rv=$?
+#		if [ $rv -eq 0 ]; then
+#			set_target_done_for ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE} ${new_target_done}
+#			rv=$?
+#		fi
+	fi
+	return $rv
+}
+
+#
+# Enable U2UP configured target administrator.
+# (called only chrooted during installation / upgrade)	
+#
+enable_u2up_target_admin_selection() {
+	local rv=1
+	local u2up_TARGET_ADMIN_NAME=""
+#	local TARGET_DONE=0
+#	local new_target_done=${1:-0}
+	local conf_dir=${1:-${U2UP_CONF_DIR}}
+
+	if [ ! -f "${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}" ]; then
+		return 1
+	fi
+	source ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}
+#	if [ -n "$u2up_TARGET_ADMIN_NAME" ] && [ $TARGET_DONE -eq 0 ]; then
+	if [ -n "$u2up_TARGET_ADMIN_NAME" ]; then
+		useradd -m -c "Admin User" $u2up_TARGET_ADMIN_NAME
+		rv=$?
+		if [ $rv -ne 0 ] && [ $rv -ne 9 ]; then
+			return 1
+		fi
+		systemd-sysusers
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			return 1
+		fi
+		passwd -de $u2up_TARGET_ADMIN_NAME
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			return 1
+		fi
+		usermod -aG wheel $u2up_TARGET_ADMIN_NAME
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			return 1
+		fi
+		# Locking the root account and scrambling its password!
+		passwd -l root
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			return 1
+		fi
+		usermod -p '!' root
+		rv=$?
+#		if [ $rv -eq 0 ]; then
+#			set_target_done_for ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE} ${new_target_done}
+#			rv=$?
+#		fi
+	fi
+	return $rv
+}
+
+#
+#TO BE DELETED!
+#
+OLD_enable_u2up_net_config_selection() {
+	local rv=0
+	local u2up_NET_INTERNAL_IFNAME=""
+	local u2up_NET_INTERNAL_ADDR_MASK=""
+	local u2up_NET_INTERNAL_GW=""
+	local u2up_NET_DNS=""
+	local u2up_NET_DOMAINS=""
+#	local TARGET_DONE=0
+#	local new_target_done=${1:-0}
+	local conf_dir=${1:-${U2UP_CONF_DIR}}
+
+	if [ ! -f "${conf_dir}/${U2UP_NETWORK_CONF_FILE}" ]; then
+		return 1
+	fi
+	source ${conf_dir}/${U2UP_NETWORK_CONF_FILE}
+#	if [ $TARGET_DONE -eq 0 ]; then
+		if [ -n "${u2up_NET_INTERNAL_IFNAME}" ] && [ -n "${u2up_NET_INTERNAL_ADDR_MASK}" ] && [ -n "${u2up_NET_INTERNAL_GW}" ]; then
+			nmcli con add type ethernet con-name internal ifname ${u2up_NET_INTERNAL_IFNAME} ip4 ${u2up_NET_INTERNAL_ADDR_MASK} gw4 ${u2up_NET_INTERNAL_GW}
+			rv=$?
+			if [ $rv -eq 0 ]; then
+				nmcli con mod internal connection.zone trusted
+				rv=$?
+			fi
+		fi
+#		if [ $rv -eq 0 ] && [ -n "${u2up_NET_DNS}" ]; then
+#			nmcli con mod internal ipv4.dns "${u2up_NET_DNS}"
+			nmcli con mod internal ipv4.dns "127.0.0.1"
+			rv=$?
+#		fi
+#		if [ $rv -eq 0 ]; then
+#			set_target_done_for ${conf_dir}/${U2UP_NETWORK_CONF_FILE} ${new_target_done}
+#			rv=$?
+#		fi
+#	fi
+	return $rv
+}
+
+#OLD_execute_net_reconfiguration() {
+#
+# Enable U2UP configured networking.
+# (called from installers and chrooted during installation / upgrade)
+#
+enable_u2up_net_config_selection() {
+	local u2up_NET_INTERNAL_IFNAME=""
+	local u2up_NET_INTERNAL_ADDR_MASK=""
+	local u2up_NET_INTERNAL_GW=""
+	local u2up_NET_DNS=""
+	local u2up_NET_DOMAINS=""
+	local net_internal_addr=""
+	local net_uuid=""
+	local conf_dir=${1:-${U2UP_CONF_DIR}}
+	local msg=""
+	local rv=0
+
+	if [ $rv -eq 0 ] && [ ! -f "${conf_dir}/${U2UP_NETWORK_CONF_FILE}" ]; then
+		msg="Missing static internal network configuration!"
+		rv=1
+	fi
+	if [ $rv -eq 0 ]; then
+		source ${conf_dir}/${U2UP_NETWORK_CONF_FILE}
+		if \
+			[ -z "$u2up_NET_INTERNAL_IFNAME" ] || \
+			[ -z "$u2up_NET_INTERNAL_ADDR_MASK" ] || \
+			[ -z "$u2up_NET_INTERNAL_GW" ] || \
+			[ -z "$u2up_NET_DNS" ] || \
+			[ -z "$u2up_NET_DOMAINS" ];
+		then
+			msg="Incomplete static internal network configuration!"
+			rv=1
+		else
+			net_internal_addr=$(echo -n "${u2up_NET_INTERNAL_ADDR_MASK}" | sed 's|\/.*||g')
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		net_uuid=$(uuidgen)
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Unable to generate new UUID!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		cat > /etc/NetworkManager/system-connections/internal.nmconnection << EOF
+[connection]
+id=internal
+uuid=${net_uuid}
+type=ethernet
+interface-name=${u2up_NET_INTERNAL_IFNAME}
+permissions=
+zone=trusted
+
+[ethernet]
+mac-address-blacklist=
+
+[ipv4]
+address1=${u2up_NET_INTERNAL_ADDR_MASK},${u2up_NET_INTERNAL_GW}
+dns=127.0.0.1;
+dns-search=
+method=manual
+
+[ipv6]
+addr-gen-mode=stable-privacy
+dns-search=
+method=auto
+EOF
+#method=ignore
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to write \"NetworkManager\" static internal network configuration!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		chmod 600 /etc/NetworkManager/system-connections/internal.nmconnection
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to set file permissions for \"NetworkManager\" static internal network configuration!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		cat > /etc/systemd/network/10-internal-static.network << EOF
+[Match]
+Name=${u2up_NET_INTERNAL_IFNAME}
+
+[Network]
+Address=${u2up_NET_INTERNAL_ADDR_MASK}
+Gateway=${u2up_NET_INTERNAL_GW}
+DNS=127.0.0.1
+Domains=${u2up_NET_DOMAINS}
+EOF
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to write \"systemd\" static internal network configuration!"
+		fi
+	fi
+#	if [ $rv -eq 0 ]; then
+#		chmod 600 /etc/systemd/network/10-internal-static.network
+#		rv=$?
+#		if [ $rv -ne 0 ]; then
+#			msg="Failed to set file permissions for \"systemd\" static internal network configuration!"
+#		fi
+#	fi
+	if [ $rv -eq 0 ]; then
+		echo "Disabling \"systemd-resolved\" of the installed system (in-favour of dnsmasq)..." >&2
+		if [ -f "/etc/systemd/system/multi-user.target.wants/systemd-resolved.service" ]; then
+			rm -f /etc/systemd/system/multi-user.target.wants/systemd-resolved.service
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				msg="Failed to remove systemd-resolved.service!"
+			fi
+		fi
+		if [ $rv -eq 0 ] && [ -f "/etc/systemd/system/dbus-org.freedesktop.resolve1.service" ]; then
+			rm -f /etc/systemd/system/dbus-org.freedesktop.resolve1.service
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				msg="Failed to remove dbus-org.freedesktop.resolve1.service!"
+			fi
+		fi
+		if [ $rv -eq 0 ]; then
+			if [ -f "/etc/resolv.conf_orig" ]; then
+				rm -f /etc/resolv.conf
+				rv=$?
+				if [ $rv -ne 0 ]; then
+					msg="Failed to remove old resolv.conf!"
+				fi
+			else
+				mv /etc/resolv.conf /etc/resolv.conf_orig
+				rv=$?
+				if [ $rv -ne 0 ]; then
+					msg="Failed to move original resolv.conf!"
+				fi
+			fi
+		fi
+#		if [ $rv -eq 0 ]; then
+#			cat > /etc/resolv.conf << EOF
+#nameserver 127.0.0.1
+#EOF
+#			rv=$?
+#			if [ $rv -ne 0 ]; then
+#				msg="Failed to write static resolv.conf!"
+#			fi
+#		fi
+		if [ $rv -eq 0 ]; then
+			if [ -f "/etc/dnsmasq.conf_orig" ]; then
+				rm -f /etc/dnsmasq.conf
+				rv=$?
+				if [ $rv -ne 0 ]; then
+					msg="Failed to remove old dnsmasq.conf!"
+				fi
+			else
+				mv /etc/dnsmasq.conf /etc/dnsmasq.conf_orig
+				rv=$?
+				if [ $rv -ne 0 ]; then
+					msg="Failed to move original dnsmasq.conf!"
+				fi
+			fi
+		fi
+		if [ $rv -eq 0 ]; then
+			cat > /etc/dnsmasq.conf << EOF
+#/etc/dnsmasq.conf
+domain-needed
+bogus-priv
+no-resolv
+
+domain=local.net
+expand-hosts
+local=/local.net/
+
+listen-address=127.0.0.1
+listen-address=${net_internal_addr}
+bind-interfaces
+
+conf-dir=/etc/dnsmasq.d,*.conf
+EOF
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				msg="Failed to write common dnsmasq.conf!"
+			fi
+		fi
+		if [ $rv -eq 0 ]; then
+			cat > /etc/dnsmasq.d/10-servers.conf << EOF
+#/etc/dnsmasq.d/10-servers.conf
+server=${u2up_NET_INTERNAL_GW}
+EOF
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				msg="Failed to write dnsmasq.d/10-servers.conf!"
+			fi
+		fi
+	fi
+	if [ $rv -ne 0 ]; then
+		echo "${msg}" >&2
+	fi
+	return $rv
+}
+
+#
+# Enable U2UP configured SW packages repository.
+# (called from "upgrade" installer and chrooted during installation / upgrade)
+#
+enable_u2up_install_repo_selection() {
+	local rv=0
+	local u2up_INSTALL_REPO_BASE_URL=""
+#	local TARGET_DONE=0
+#	local new_target_done=${1:-0}
+	local conf_dir=${1:-${U2UP_CONF_DIR}}
+
+	if [ ! -f "${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
+		return 1
+	fi
+	source ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}
+#	if [ $TARGET_DONE -eq 0 ]; then
+		if [ -n "${u2up_INSTALL_REPO_BASE_URL}" ]; then
+			mkdir -p /etc/yum.repos.d
+			(( rv+=$? ))
+			echo "[base-repo]" > /etc/yum.repos.d/base.repo
+			(( rv+=$? ))
+			echo "name=Base installation repository" >> /etc/yum.repos.d/base.repo
+			(( rv+=$? ))
+			echo "baseurl=${u2up_INSTALL_REPO_BASE_URL}" >> /etc/yum.repos.d/base.repo
+			(( rv+=$? ))
+			echo "enabled=1" >> /etc/yum.repos.d/base.repo
+			(( rv+=$? ))
+			echo "metadata_expire=0" >> /etc/yum.repos.d/base.repo
+			(( rv+=$? ))
+			echo "gpgcheck=0" >> /etc/yum.repos.d/base.repo
+			(( rv+=$? ))
+#			set_target_done_for ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE} ${new_target_done}
+#			rv=$?
+		else
+			rm -rf /etc/yum.repos.d
+			rv=$?
+		fi
+#	fi
+	return $rv
+}
+
+############################################################
+#                                                          #
+# MISC functions of the U2UP configuration / installation! #
+#                                                          #
+############################################################
+#
+# Prepare a new set of U2UP configuration files to be used
+# in upgrade.
+# (called only from "upgrade" installer)
+#
 prepare_u2up_upgrade_configuration() {
 	local rv=0
 	local conf_dir=$1
-	local TARGET_DISK_SET=""
-	local TARGET_PART_SET=""
+	local u2up_TARGET_DISK=""
+	local u2up_TARGET_PART=""
 	local upgrade_disk_part
 
 	if [ -z "${conf_dir}" ]; then
@@ -682,15 +892,15 @@ prepare_u2up_upgrade_configuration() {
 		cp -pf ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE} ${conf_dir}/
 		(( rv+=$? ))
 		source ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}
-		case ${TARGET_PART_SET} in
-		${TARGET_DISK_SET}3)
+		case ${u2up_TARGET_PART} in
+		${u2up_TARGET_DISK}3)
 			upgrade_disk_part=4
 			;;
-		${TARGET_DISK_SET}4)
+		${u2up_TARGET_DISK}4)
 			upgrade_disk_part=3
 			;;
 		esac
-		store_target_part_selection ${TARGET_DISK_SET}${upgrade_disk_part} ${conf_dir}
+		save_u2up_target_part_selection ${u2up_TARGET_DISK}${upgrade_disk_part} ${conf_dir}
 		(( rv+=$? ))
 	fi
 	if [ ! -e "${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}" ]; then
@@ -712,43 +922,47 @@ prepare_u2up_upgrade_configuration() {
 	return $rv
 }
 
+#
+# Check and/or create U2UP defined filesystems.
+# New rootfs partition is allways re-created!
+# (called from installers - never chrooted)
 check_create_filesystems() {
-	local TARGET_DISK_SET=$1
-	local TARGET_PART_SET=$2
+	local u2up_TARGET_DISK=$1
+	local u2up_TARGET_PART=$2
 	local fstype=""
 	local msg=""
 	local rv=0
 
-	if [ $rv -eq 0 ] && [ -z "$TARGET_DISK_SET" ]; then
+	if [ $rv -eq 0 ] && [ -z "$u2up_TARGET_DISK" ]; then
 		msg="Target disk not defined!"
 		rv=1
 	fi
-	if [ $rv -eq 0 ] && [ -z "$TARGET_PART_SET" ]; then
+	if [ $rv -eq 0 ] && [ -z "$u2up_TARGET_PART" ]; then
 		msg="Target disk paritition not defined!"
 		rv=1
 	fi
 	if [ $rv -eq 0 ]; then
 		# Installation partition:
-		echo "Allways re-create EXT4 filesystem on installation partition /dev/$TARGET_PART_SET:" >&2
+		echo "Allways re-create EXT4 filesystem on installation partition /dev/$u2up_TARGET_PART:" >&2
 		umount -f $U2UP_INSTALL_ROOT_MNT >&2
-		mkfs.ext4 -F /dev/$TARGET_PART_SET >&2
+		mkfs.ext4 -F /dev/$u2up_TARGET_PART >&2
 		rv=$?
 		if [ $rv -ne 0 ]; then
-			msg="Failed to re-create EXT4 filesystem on installation partition /dev/$TARGET_PART_SET!"
+			msg="Failed to re-create EXT4 filesystem on installation partition /dev/$u2up_TARGET_PART!"
 #		else
 #			echo -e "OK!\n" >&2
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
 		# Boot partition:
-		echo "Check / re-create VFAT filesystem on \"boot\" partition /dev/${TARGET_DISK_SET}1:" >&2
-		fstype="$(lsblk -fr /dev/${TARGET_DISK_SET}1 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
+		echo "Check / re-create VFAT filesystem on \"boot\" partition /dev/${u2up_TARGET_DISK}1:" >&2
+		fstype="$(lsblk -fr /dev/${u2up_TARGET_DISK}1 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
 		if [ -z "$fstype" ] || [ "$fstype" != "vfat" ]; then
 #			echo "Recreate:" >&2
-			mkfs.vfat -F /dev/${TARGET_DISK_SET}1 >&2
+			mkfs.vfat -F /dev/${u2up_TARGET_DISK}1 >&2
 			rv=$?
 			if [ $rv -ne 0 ]; then
-				msg="Failed to check / re-create VFAT filesystem on \"boot\" partition /dev/${TARGET_DISK_SET}1!"
+				msg="Failed to check / re-create VFAT filesystem on \"boot\" partition /dev/${u2up_TARGET_DISK}1!"
 #			else
 #				echo -e "Re-create OK!\n" >&2
 			fi
@@ -758,14 +972,14 @@ check_create_filesystems() {
 	fi
 	if [ $rv -eq 0 ]; then
 		# Log partition:
-		echo "Check / re-create EXT4 filesystem on \"log\" partition /dev/${TARGET_DISK_SET}2:" >&2
-		fstype="$(lsblk -fr /dev/${TARGET_DISK_SET}2 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
+		echo "Check / re-create EXT4 filesystem on \"log\" partition /dev/${u2up_TARGET_DISK}2:" >&2
+		fstype="$(lsblk -fr /dev/${u2up_TARGET_DISK}2 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
 		if [ -z "$fstype" ] || [ "$fstype" != "ext4" ]; then
 #			echo "Recreate:" >&2
-			mkfs.ext4 -F /dev/${TARGET_DISK_SET}2 >&2
+			mkfs.ext4 -F /dev/${u2up_TARGET_DISK}2 >&2
 			rv=$?
 			if [ $rv -ne 0 ]; then
-				msg="Failed to check / re-create EXT4 filesystem on \"log\" partition /dev/${TARGET_DISK_SET}2!"
+				msg="Failed to check / re-create EXT4 filesystem on \"log\" partition /dev/${u2up_TARGET_DISK}2!"
 #			else
 #				echo -e "Re-create OK!\n" >&2
 			fi
@@ -775,14 +989,14 @@ check_create_filesystems() {
 	fi
 	if [ $rv -eq 0 ]; then
 		# RootA partition:
-		echo "Check / re-create EXT4 filesystem on \"rootA\" partition /dev/${TARGET_DISK_SET}3:" >&2
-		fstype="$(lsblk -fr /dev/${TARGET_DISK_SET}3 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
+		echo "Check / re-create EXT4 filesystem on \"rootA\" partition /dev/${u2up_TARGET_DISK}3:" >&2
+		fstype="$(lsblk -fr /dev/${u2up_TARGET_DISK}3 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
 		if [ -z "$fstype" ] || [ "$fstype" != "ext4" ]; then
 #			echo "Recreate:" >&2
-			mkfs.ext4 -F /dev/${TARGET_DISK_SET}3 >&2
+			mkfs.ext4 -F /dev/${u2up_TARGET_DISK}3 >&2
 			rv=$?
 			if [ $rv -ne 0 ]; then
-				msg="Failed to check / re-create EXT4 filesystem on \"rootA\" partition /dev/${TARGET_DISK_SET}3!"
+				msg="Failed to check / re-create EXT4 filesystem on \"rootA\" partition /dev/${u2up_TARGET_DISK}3!"
 #			else
 #				echo -e "Re-create OK!\n" >&2
 			fi
@@ -792,14 +1006,14 @@ check_create_filesystems() {
 	fi
 	if [ $rv -eq 0 ]; then
 		# RootB partition:
-		echo "Check / re-create EXT4 filesystem on \"rootB\" partition /dev/${TARGET_DISK_SET}4:" >&2
-		fstype="$(lsblk -fr /dev/${TARGET_DISK_SET}4 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
+		echo "Check / re-create EXT4 filesystem on \"rootB\" partition /dev/${u2up_TARGET_DISK}4:" >&2
+		fstype="$(lsblk -fr /dev/${u2up_TARGET_DISK}4 | grep -v "NAME" | sed 's/[a-z,0-9]* //' | sed 's/ .*//')"
 		if [ -z "$fstype" ] || [ "$fstype" != "ext4" ]; then
 #			echo "Recreate:" >&2
-			mkfs.ext4 -F /dev/${TARGET_DISK_SET}4 >&2
+			mkfs.ext4 -F /dev/${u2up_TARGET_DISK}4 >&2
 			rv=$?
 			if [ $rv -ne 0 ]; then
-				msg="Failed to check / re-create EXT4 filesystem on \"rootB\" partition /dev/${TARGET_DISK_SET}4!"
+				msg="Failed to check / re-create EXT4 filesystem on \"rootB\" partition /dev/${u2up_TARGET_DISK}4!"
 #			else
 #				echo -e "Re-create OK!\n" >&2
 			fi
@@ -815,6 +1029,11 @@ check_create_filesystems() {
 	return $rv
 }
 
+#
+# Initial check of the images bundle for the correctness of checksum, rootfs and
+# date-timestamp IDs presence.
+# (called from installers - never chrooted)
+#
 check_images_bundle_initial_content() {
 	local msg=""
 	local rv=0
@@ -835,15 +1054,15 @@ check_images_bundle_initial_content() {
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		U2UP_IMAGE_ROOTFS_NAME=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} 2> /dev/null | grep U2UP_ROOTFS_NAME | sed 's/U2UP_ROOTFS_NAME\=//')
+		U2UP_IMAGE_ROOTFS_NAME=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} 2> /dev/null | grep u2up_ROOTFS_NAME | sed 's/u2up_ROOTFS_NAME\=//')
 		if [ -z "${U2UP_IMAGE_ROOTFS_NAME}" ]; then
 			msg="Images bundle installation rootfs archive name not set!"
 			rv=1
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		U2UP_IMAGE_ROOTFS_DTS=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} 2> /dev/null | grep U2UP_ROOTFS_DTS | sed 's/U2UP_ROOTFS_DTS\=//')
-		if [ -z "${U2UP_IMAGE_ROOTFS_DTS}" ]; then
+		U2UP_IMAGE_ROOTFS_DATETIME=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} 2> /dev/null | grep u2up_ROOTFS_DATETIME | sed 's/u2up_ROOTFS_DATETIME\=//')
+		if [ -z "${U2UP_IMAGE_ROOTFS_DATETIME}" ]; then
 			msg="Images bundle installation rootfs archive Date-TimeStamp not set!"
 			rv=1
 		fi
@@ -857,25 +1076,29 @@ check_images_bundle_initial_content() {
 	fi
 	if [ $rv -ne 0 ]; then
 		U2UP_IMAGE_ROOTFS_NAME=""
-		U2UP_IMAGE_ROOTFS_DTS=""
+		U2UP_IMAGE_ROOTFS_DATETIME=""
 		echo "${msg}" >&2
 	fi
 	return $rv
 }
 
+#
+# Mount target partition before extracting "rootfs".
+# (called from installers before calling chroot)
+#
 mount_installation_filesystem() {
-	local TARGET_DISK_SET=$1
-	local TARGET_PART_SET=$2
+	local u2up_TARGET_DISK=$1
+	local u2up_TARGET_PART=$2
 	local root_part_suffix=$3
 	local msg=""
 	local rv=0
 
 	echo "Mounting installation partition filesystem..." >&2
-	if [ $rv -eq 0 ] && [ -z "$TARGET_DISK_SET" ]; then
+	if [ $rv -eq 0 ] && [ -z "$u2up_TARGET_DISK" ]; then
 		msg="Target disk not defined!"
 		rv=1
 	fi
-	if [ $rv -eq 0 ] && [ -z "$TARGET_PART_SET" ]; then
+	if [ $rv -eq 0 ] && [ -z "$u2up_TARGET_PART" ]; then
 		msg="Target disk paritition not defined!"
 		rv=1
 	fi
@@ -885,33 +1108,37 @@ mount_installation_filesystem() {
 	fi
 	if [ $rv -eq 0 ]; then
 		umount -f $U2UP_INSTALL_ROOT_MNT >&2
-		mount /dev/$TARGET_PART_SET $U2UP_INSTALL_ROOT_MNT >&2
+		mount /dev/$u2up_TARGET_PART $U2UP_INSTALL_ROOT_MNT >&2
 		rv=$?
 		if [ $rv -ne 0 ]; then
-			msg="Failed to mount installation partition filesystem (${TARGET_PART_SET} - root${root_part_suffix})!"
+			msg="Failed to mount installation partition filesystem (${u2up_TARGET_PART} - root${root_part_suffix})!"
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		msg="Mounting installation partition filesystem (${TARGET_PART_SET} - root${root_part_suffix}) successfully finished!"
+		msg="Mounting installation partition filesystem (${u2up_TARGET_PART} - root${root_part_suffix}) successfully finished!"
 	fi
 
 	echo "${msg}" >&2
 	return $rv
 }
 
+#
+# Extract just "rootfs" from images bundle to the target partition.
+# (called from installers before calling chroot)
+#
 extract_rootfs_from_images_bundle() {
-	local TARGET_DISK_SET=$1
-	local TARGET_PART_SET=$2
+	local u2up_TARGET_DISK=$1
+	local u2up_TARGET_PART=$2
 	local root_part_suffix=$3
 	local msg=""
 	local rv=0
 
 	echo "Extracting root filesystem archive..." >&2
-	if [ $rv -eq 0 ] && [ -z "$TARGET_DISK_SET" ]; then
+	if [ $rv -eq 0 ] && [ -z "$u2up_TARGET_DISK" ]; then
 		msg="Target disk not defined!"
 		rv=1
 	fi
-	if [ $rv -eq 0 ] && [ -z "$TARGET_PART_SET" ]; then
+	if [ $rv -eq 0 ] && [ -z "$u2up_TARGET_PART" ]; then
 		msg="Target disk paritition not defined!"
 		rv=1
 	fi
@@ -934,6 +1161,10 @@ extract_rootfs_from_images_bundle() {
 	return $rv
 }
 
+#
+# Prepare / call chroot with target update script.
+# (called from installer scripts)
+#
 update_filesystem_chrooted() {
 	local msg=""
 	local rv=0
@@ -1001,6 +1232,11 @@ update_filesystem_chrooted() {
 	return $rv 
 }
 
+#
+# Checks all content of the images bundle beside correctness of the bundle
+# checksum.
+# (called only chrooted)
+#
 check_images_bundle_all_content() {
 	local msg=""
 	local rv=0
@@ -1034,15 +1270,15 @@ check_images_bundle_all_content() {
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		U2UP_IMAGE_ROOTFS_NAME=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} 2> /dev/null | grep U2UP_ROOTFS_NAME | sed 's/U2UP_ROOTFS_NAME\=//')
+		U2UP_IMAGE_ROOTFS_NAME=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} 2> /dev/null | grep u2up_ROOTFS_NAME | sed 's/u2up_ROOTFS_NAME\=//')
 		if [ -z "${U2UP_IMAGE_ROOTFS_NAME}" ]; then
 			msg="Images bundle installation rootfs archive name not set!"
 			rv=1
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		U2UP_IMAGE_ROOTFS_DTS=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} 2> /dev/null | grep U2UP_ROOTFS_DTS | sed 's/U2UP_ROOTFS_DTS\=//')
-		if [ -z "${U2UP_IMAGE_ROOTFS_DTS}" ]; then
+		U2UP_IMAGE_ROOTFS_DATETIME=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} 2> /dev/null | grep u2up_ROOTFS_DATETIME | sed 's/u2up_ROOTFS_DATETIME\=//')
+		if [ -z "${U2UP_IMAGE_ROOTFS_DATETIME}" ]; then
 			msg="Images bundle installation rootfs archive Date-TimeStamp not set!"
 			rv=1
 		fi
@@ -1077,12 +1313,16 @@ check_images_bundle_all_content() {
 	fi
 	if [ $rv -ne 0 ]; then
 		U2UP_IMAGE_ROOTFS_NAME=""
-		U2UP_IMAGE_ROOTFS_DTS=""
+		U2UP_IMAGE_ROOTFS_DATETIME=""
 		echo "${msg}" >&2
 	fi
 	return $rv
 }
 
+#
+# Extracts remaining content (beside rootfs) from the images bundle.
+# (called only chrooted)
+#
 extract_remaining_from_images_bundle() {
 	local root_part_suffix=$1
 	local msg=""
@@ -1130,7 +1370,12 @@ extract_remaining_from_images_bundle() {
 	return $rv
 }
 
-
+#
+# Transfer new U2UP images bundle archive to the mounted target
+# filesystem before calling "chroot"!
+# (called from "first install" installer only)
+# ("upgrade" installer shares the bundle via common partition)
+#
 populate_u2up_images_bundle() {
 	local root_path_prefix=${1:-${U2UP_INSTALL_ROOT_MNT}}
 	local images_dir=${2:-${U2UP_IMAGES_DIR}}
@@ -1150,6 +1395,11 @@ populate_u2up_images_bundle() {
 	return $rv
 }
 
+#
+# Transfer new U2UP configuration files to the mounted target
+# filesystem before calling "chroot"!
+# (called from "first install" and "upgrade" installers)
+#
 populate_u2up_configurations() {
 	local root_path_prefix=$1
 	local conf_dir=${2:-${U2UP_CONF_DIR}}
@@ -1166,51 +1416,50 @@ populate_u2up_configurations() {
 	mkdir -p $(dirname ${root_path_prefix}${U2UP_CONF_DIR})
 	cp -a ${conf_dir} ${root_path_prefix}${U2UP_CONF_DIR}
 	rv=$?
-	if [ $rv -eq 0 ]; then
-		for file in $(ls ${root_path_prefix}${U2UP_CONF_DIR}); do
-			set_target_done_for ${root_path_prefix}${U2UP_CONF_DIR}/${file} 0
-			rv=$?
-		done
-	fi
+#	if [ $rv -eq 0 ]; then
+#		for file in $(ls ${root_path_prefix}${U2UP_CONF_DIR}); do
+#			set_target_done_for ${root_path_prefix}${U2UP_CONF_DIR}/${file} 0
+#			rv=$?
+#		done
+#	fi
 	return $rv
 }
 
 #
 # Finalize configuration during the first boot.
 # (used in "u2up-pre-config.sh")
+# (OBSOLETE)
 #
 evaluate_u2up_configurations() {
 #set -x
-	local root_path_prefix="/"
 	local file=""
-	local rv=1
-	if [ ! -d "${root_path_prefix}${U2UP_CONF_DIR}" ]; then
-		return $rv
+	local rv=0
+	if [ ! -d "${U2UP_CONF_DIR}" ]; then
+		return 1
 	fi
-	rv=0
-	for file in $(ls ${root_path_prefix}${U2UP_CONF_DIR}); do
+	for file in $(ls ${U2UP_CONF_DIR}); do
 		case $file in
 		${U2UP_KEYMAP_CONF_FILE})
-			enable_keymap_selection 1 ${root_path_prefix}
-			rv=$?
+#			enable_u2up_keymap_selection
+#			rv=$?
 			;;
 		${U2UP_TARGET_DISK_CONF_FILE})
 			;;
 		${U2UP_TARGET_HOSTNAME_CONF_FILE})
-			enable_target_hostname_selection 1 ${root_path_prefix}
-			rv=$?
+#			enable_u2up_target_hostname_selection
+#			rv=$?
 			;;
 		${U2UP_TARGET_ADMIN_CONF_FILE})
-			enable_target_admin_selection 1 ${root_path_prefix}
-			rv=$?
+#			enable_u2up_target_admin_selection
+#			rv=$?
 			;;
 		${U2UP_NETWORK_CONF_FILE})
-			enable_net_config_selection 1 ${root_path_prefix}
-			rv=$?
+#			enable_u2up_net_config_selection
+#			rv=$?
 			;;
 		${U2UP_INSTALL_REPO_CONF_FILE})
-			enable_install_repo_selection 1 ${root_path_prefix}
-			rv=$?
+#			enable_u2up_install_repo_selection
+#			rv=$?
 			;;
 		esac
 	done

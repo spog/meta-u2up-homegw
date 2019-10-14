@@ -27,8 +27,10 @@ IMAGE_INSTALL = "\
     u2up-pc-installer \
     dialog \
     dosfstools \
+    util-linux-uuidgen \
+    haveged \
     "
 
-SYSTEMD_DEFAULT_TARGET = "u2up-pre-config.target"
+#SYSTEMD_DEFAULT_TARGET = "u2up-pre-config.target"
 
 inherit core-image

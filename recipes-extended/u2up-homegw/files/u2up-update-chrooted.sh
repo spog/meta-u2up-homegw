@@ -7,6 +7,14 @@
 
 echo "Chrooted update script started!" >&2
 
+echo "Setting initial (error) login banner of the installed system..." >&2
+echo -e "U2UP (!!! THIS SYSTEM IS NOT CONFIGURED PROPERLY - check installation !!!)\n" > /etc/issue.d/z99-u2up.issue
+if [ $? -ne 0 ]; then
+	echo "Failed to set initial (error) login banner of the installed system!" >&2
+	exit 1
+fi
+echo "Successfully set initial (error) login banner of the installed system!" >&2
+
 U2UP_INSTALL_BASH_LIB="/lib/u2up/u2up-install-bash-lib"
 if [ ! -f "${U2UP_INSTALL_BASH_LIB}" ]; then
 	echo "Program terminated (missing: ${U2UP_INSTALL_BASH_LIB})!" >&2
@@ -75,7 +83,7 @@ if [ ! -f "${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE}" ]; then
 fi
 source ${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE}
 rv=0
-echo "title ${current_root_part_label} (${U2UP_ROOTFS_DTS})" > /boot/loader/entries/${current_root_part_label}.conf
+echo "title ${current_root_part_label} (${u2up_ROOTFS_DATETIME})" > /boot/loader/entries/${current_root_part_label}.conf
 ((rv+=$?))
 echo "linux /bzImage${current_root_part_label_suffix}" >> /boot/loader/entries/${current_root_part_label}.conf
 ((rv+=$?))
@@ -90,12 +98,28 @@ fi
 echo "Successfully created new boot \"${current_root_part_label}\" menu entry!" >&2
 
 echo "Configuring target keyboard mapping..." >&2
-enable_keymap_selection 1
+enable_u2up_keymap_selection
 if [ $? -ne 0 ]; then
 	echo "Failed to configure target keyboard mapping!" >&2
 	exit 1
 fi
 echo "Successfully configured target keyboard mapping!" >&2
+
+echo "Configuring target hostname..." >&2
+enable_u2up_target_hostname_selection
+if [ $? -ne 0 ]; then
+	echo "Failed to configure target hostname!" >&2
+	exit 1
+fi
+echo "Successfully configured target hostname!" >&2
+
+echo "Configuring target admin..." >&2
+enable_u2up_target_admin_selection
+if [ $? -ne 0 ]; then
+	echo "Failed to configure target admin!" >&2
+	exit 1
+fi
+echo "Successfully configured target admin!" >&2
 
 echo "Configuring \"fstab\" for common boot partition..." >&2
 echo "/dev/${current_target_disk}1 /boot vfat umask=0077 0 1" >> /etc/fstab
@@ -113,21 +137,38 @@ if [ $? -ne 0 ]; then
 fi
 echo "Successfully configured \"fstab\" for common logging partition!" >&2
 
-echo "Setting \"done\" configuring target disk and partitions..." >&2
-set_target_done_for ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE} 1
-if [ $? -ne 0 ]; then
-	echo "Failed to set \"done\" configuring target disk and partitions!" >&2
-	exit 1
-fi
-echo "Successfully set \"done\" configuring target disk and partitions!" >&2
+#echo "Setting \"done\" configuring target disk and partitions..." >&2
+#set_target_done_for ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE} 1
+#if [ $? -ne 0 ]; then
+#	echo "Failed to set \"done\" configuring target disk and partitions!" >&2
+#	exit 1
+#fi
+#echo "Successfully set \"done\" configuring target disk and partitions!" >&2
 
 echo "Configuring \"internal network\" of the installed system..." >&2
-execute_net_reconfiguration
+#execute_net_reconfiguration
+enable_u2up_net_config_selection
 if [ $? -ne 0 ]; then
 	echo "Failed to configure \"internal network\" of the installed system!" >&2
 	exit 1
 fi
-echo "successfully configured \"internal network\" of the installed system!" >&2
+echo "Successfully configured \"internal network\" of the installed system!" >&2
+
+echo "Configuring SW packages repository for the installed system..." >&2
+enable_u2up_install_repo_selection
+if [ $? -ne 0 ]; then
+	echo "Failed to configure SW packages repositoey for the installed system!" >&2
+	exit 1
+fi
+echo "Successfully configured SW packages repositora for the installed system!" >&2
+
+echo "Setting final login banner of the installed system..." >&2
+echo -e "U2UP (use your admin-user to login:-)\n" > /etc/issue.d/z99-u2up.issue
+if [ $? -ne 0 ]; then
+	echo "Failed to set final login banner of the installed system!" >&2
+	exit 1
+fi
+echo "Successfully set final login banner of the installed system!" >&2
 
 echo "Chrooted update script successfully finished!" >&2
 

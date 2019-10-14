@@ -22,7 +22,7 @@ display_net_config_submenu() {
 	if [ $rv -ne 0 ]; then
 		return $rv
 	fi
-	local net_internal_ifname_current=$NET_INTERNAL_IFNAME_SET
+	local net_internal_ifname_current=$u2up_NET_INTERNAL_IFNAME
 
 	while true; do
 		exec 3>&1
@@ -53,19 +53,19 @@ display_net_config_submenu() {
 		esac
 
 		current_item="$(get_item_selection $selection)"
-		current_set="$(store_net_config_selection ${conf_dir} $selection)"
+		current_set="$(save_u2up_net_config_selection ${conf_dir} $selection)"
 		if [ -n "$current_set" ]; then
 			#Resize pressed: set new dialog values
 			eval $current_set
 		else
 			#Ok
-			store_net_config_selection ${conf_dir} "IP address/mask: ${net_internal_addr_mask_current}"
+			save_u2up_net_config_selection ${conf_dir} "IP address/mask: ${net_internal_addr_mask_current}"
 			(( rv+=$? ))
-			store_net_config_selection ${conf_dir} "IP gateway: ${net_internal_gw_current}"
+			save_u2up_net_config_selection ${conf_dir} "IP gateway: ${net_internal_gw_current}"
 			(( rv+=$? ))
-			store_net_config_selection ${conf_dir} "DNS: ${net_dns_current}"
+			save_u2up_net_config_selection ${conf_dir} "DNS: ${net_dns_current}"
 			(( rv+=$? ))
-			store_net_config_selection ${conf_dir} "Domains: ${net_domains_current}"
+			save_u2up_net_config_selection ${conf_dir} "Domains: ${net_domains_current}"
 			(( rv+=$? ))
 			return $rv
 		fi
