@@ -29,6 +29,8 @@ IMAGE_INSTALL = "\
     dosfstools \
     util-linux-uuidgen \
     haveged \
+    less \
+    dnsmasq \
     "
 
 #SYSTEMD_DEFAULT_TARGET = "u2up-pre-config.target"
