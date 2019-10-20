@@ -22,8 +22,9 @@ U2UP_KEYMAP_CONF_FILE="10-keymap-conf"
 U2UP_TARGET_DISK_CONF_FILE="20-target_disk-conf"
 U2UP_TARGET_HOSTNAME_CONF_FILE="30-hostname-conf"
 U2UP_TARGET_ADMIN_CONF_FILE="40-admin-conf"
-U2UP_NETWORK_CONF_FILE="50-network-conf"
-U2UP_INSTALL_REPO_CONF_FILE="60-install_repo-conf"
+U2UP_NETWORK_EXTERNAL_CONF_FILE="50-network_external-conf"
+U2UP_NETWORK_INTERNAL_CONF_FILE="60-network_internal-conf"
+U2UP_INSTALL_REPO_CONF_FILE="70-install_repo-conf"
 
 # Use common partition to download images bundle:
 U2UP_IMAGES_DIR="/var/log/u2up-images"
@@ -86,6 +87,7 @@ get_default_boot_label() {
 }
 
 set_default_boot() {
+	local rv=0
 	local new_boot_label=$1
 
 	if [ -z "${new_boot_label}" ]; then
@@ -98,9 +100,32 @@ set_default_boot() {
 	(( rv+=$? ))
 	echo "timeout 5" >> /boot/loader/loader.conf
 	(( rv+=$? ))
-	if [ $rv -ne 0 ]; then
-		return $rv
+	return $rv
+}
+
+create_new_boot() {
+	local rv=0
+	local root_part_label=$1
+	local root_part_label_suffix=$2
+	local root_part_uuid=$3
+
+	if [ -z "${root_part_label}" ] || [ -z "${root_part_label_suffix}" ] || [ -z "${root_part_uuid}" ]; then
+		return 1
 	fi
+	if [ ! -f "${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE}" ]; then
+		echo "Program terminated (missing: ${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE})!" >&2
+		return 1
+	fi
+	source ${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE}
+	rv=$?
+	echo "title ${root_part_label} (${u2up_ROOTFS_DATETIME})" > /boot/loader/entries/${root_part_label}.conf
+	((rv+=$?))
+	echo "linux /bzImage${root_part_label_suffix}" >> /boot/loader/entries/${root_part_label}.conf
+	((rv+=$?))
+	echo "options label=${root_part_label} root=PARTUUID=${root_part_uuid} rootwait rootfstype=ext4 console=tty0 ttyprintk.tioccons=1" >> /boot/loader/entries/${root_part_label}.conf
+	((rv+=$?))
+	echo "initrd /microcode${root_part_label_suffix}.cpio" >> /boot/loader/entries/${root_part_label}.conf
+	((rv+=$?))
 	return $rv
 }
 
@@ -110,7 +135,6 @@ set_default_boot() {
 #                                    #
 ######################################
 get_current_target_disk() {
-	local u2up_TARGET_DISK=""
 	if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
 		source $U2UP_CONF_DIR/$U2UP_TARGET_DISK_CONF_FILE
 		echo -n "${u2up_TARGET_DISK}"
@@ -118,7 +142,6 @@ get_current_target_disk() {
 }
 
 get_current_target_part() {
-	local u2up_TARGET_PART=""
 	if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
 		source $U2UP_CONF_DIR/$U2UP_TARGET_DISK_CONF_FILE
 		echo -n "${u2up_TARGET_PART}"
@@ -204,6 +227,37 @@ get_root_label() {
 #	return $rv
 #}
 
+############################################
+#                                          #
+# CHECK functions for U2UP configurations! #
+#                                          #
+############################################
+check_net_external_ifname_set() {
+	local conf_dir=${1}
+
+	if [ -f "${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}" ]; then
+		source ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}
+	else
+		u2up_NET_EXTERNAL_IFNAME=""
+	fi
+	if [ -z "$u2up_NET_EXTERNAL_IFNAME" ]; then
+		return 1
+	fi
+}
+
+check_net_internal_ifname_set() {
+	local conf_dir=${1}
+
+	if [ -f "${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}" ]; then
+		source ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}
+	else
+		u2up_NET_INTERNAL_IFNAME=""
+	fi
+	if [ -z "$u2up_NET_INTERNAL_IFNAME" ]; then
+		return 1
+	fi
+}
+
 ###########################################
 #                                         #
 # SAVE functions for U2UP configurations! #
@@ -221,7 +275,7 @@ save_u2up_keymap_selection() {
 		loadkeys -p $keymap 2> /dev/null
 		rv=$?
 		if [ $rv -eq 0 ]; then
-			echo "u2up_KEYMAP=$keymap" > ${conf_dir}/${U2UP_KEYMAP_CONF_FILE}
+			echo "local u2up_KEYMAP=$keymap" > ${conf_dir}/${U2UP_KEYMAP_CONF_FILE}
 		fi
 	fi
 	return $rv
@@ -237,7 +291,7 @@ save_u2up_target_disk_selection() {
 	fi
 	cat ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE} | grep -v "u2up_TARGET_DISK=" > ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
 	if [ -n "$disk" ]; then
-		echo "u2up_TARGET_DISK=$disk" >> ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
+		echo "local u2up_TARGET_DISK=$disk" >> ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
 	else
 		return 1
 	fi
@@ -253,7 +307,7 @@ save_u2up_target_part_selection() {
 
 	cat ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE} | grep -v "u2up_TARGET_PART=" > ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
 	if [ -n "$part" ]; then
-		echo "u2up_TARGET_PART=$part" >> ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
+		echo "local u2up_TARGET_PART=$part" >> ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
 	else
 		return 1
 	fi
@@ -299,28 +353,101 @@ save_u2up_target_partsize_selection() {
 	esac
 
 	cat ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE} | grep -v "${var_target_partsz_set}=" > ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
-	echo "${var_target_partsz_set}=$part_size" >> ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
+	echo "local ${var_target_partsz_set}=$part_size" >> ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
 	mv ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}
 	rv=$?
 	echo "${var_target_partsz_current}=${part_size}"
 	return $rv
 }
 
-save_u2up_net_internal_iface_selection() {
-	local rv=1
+save_u2up_net_external_iface_selection() {
+	local rv=0
 	local ifname=$1
 	local conf_dir=${2:-${U2UP_CONF_DIR}}
 
 	if [ ! -d "${conf_dir}" ]; then
 		return 1
 	fi
-	cat ${conf_dir}/${U2UP_NETWORK_CONF_FILE} | grep -v "u2up_NET_INTERNAL_IFNAME=" > ${conf_dir}/${U2UP_NETWORK_CONF_FILE}_tmp
+	cat ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE} | grep -v "u2up_NET_EXTERNAL_IFNAME=" > ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
 	if [ -n "$ifname" ]; then
-		echo "u2up_NET_INTERNAL_IFNAME=$ifname" >> ${conf_dir}/${U2UP_NETWORK_CONF_FILE}_tmp
+		if [ "$ifname" != "none" ]; then
+			echo "local u2up_NET_EXTERNAL_IFNAME=$ifname" >> ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
+		else
+			echo "local u2up_NET_EXTERNAL_IFNAME=" >> ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
+		fi
 	else
 		return 1
 	fi
-	mv ${conf_dir}/${U2UP_NETWORK_CONF_FILE}_tmp ${conf_dir}/${U2UP_NETWORK_CONF_FILE}
+	mv ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}
+	rv=$?
+	return $rv
+}
+
+save_u2up_net_external_mac_selection() {
+	local rv=0
+	local mac=$1
+	local conf_dir=${2:-${U2UP_CONF_DIR}}
+
+	if [ ! -d "${conf_dir}" ]; then
+		return 1
+	fi
+	cat ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE} | grep -v "u2up_NET_EXTERNAL_MAC_ADDR=" > ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
+	if [ -n "$mac" ]; then
+		if [ "$mac" != "-" ]; then
+			echo "local u2up_NET_EXTERNAL_MAC_ADDR=$mac" >> ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
+		else
+			echo "local u2up_NET_EXTERNAL_MAC_ADDR=" >> ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
+		fi
+	else
+		return 1
+	fi
+	mv ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}
+	rv=$?
+	return $rv
+}
+
+save_u2up_net_internal_iface_selection() {
+	local rv=0
+	local ifname=$1
+	local conf_dir=${2:-${U2UP_CONF_DIR}}
+
+	if [ ! -d "${conf_dir}" ]; then
+		return 1
+	fi
+	cat ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE} | grep -v "u2up_NET_INTERNAL_IFNAME=" > ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
+	if [ -n "$ifname" ]; then
+		if [ "$ifname" != "none" ]; then
+			echo "local u2up_NET_INTERNAL_IFNAME=$ifname" >> ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
+		else
+			echo "local u2up_NET_INTERNAL_IFNAME=" >> ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
+		fi
+	else
+		return 1
+	fi
+	mv ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}
+	rv=$?
+	return $rv
+}
+
+save_u2up_net_internal_mac_selection() {
+	local rv=0
+	local mac=$1
+	local conf_dir=${2:-${U2UP_CONF_DIR}}
+
+	if [ ! -d "${conf_dir}" ]; then
+		return 1
+	fi
+	cat ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE} | grep -v "u2up_NET_INTERNAL_MAC_ADDR=" > ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
+	if [ -n "$mac" ]; then
+		if [ "$mac" != "-" ]; then
+			echo "local u2up_NET_INTERNAL_MAC_ADDR=$mac" >> ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
+		else
+			echo "local u2up_NET_INTERNAL_MAC_ADDR=" >> ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
+		fi
+	else
+		return 1
+	fi
+	mv ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}
 	rv=$?
 	return $rv
 }
@@ -350,7 +477,7 @@ save_u2up_target_hostname_selection() {
 	esac
 
 	cat ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE} | grep -v "${var_target_hostname_set}=" > ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}_tmp
-	echo "${var_target_hostname_set}=$value" >> ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}_tmp
+	echo "local ${var_target_hostname_set}=$value" >> ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}_tmp
 	mv ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}_tmp ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}
 	rv=$?
 	echo "${var_target_hostname_current}=${value}"
@@ -382,14 +509,14 @@ save_u2up_target_admin_selection() {
 	esac
 
 	cat ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE} | grep -v "${var_target_admin_name_set}=" > ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}_tmp
-	echo "${var_target_admin_name_set}=$value" >> ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}_tmp
+	echo "local ${var_target_admin_name_set}=$value" >> ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}_tmp
 	mv ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}_tmp ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}
 	rv=$?
 	echo "${var_target_admin_name_current}=${value}"
 	return $rv
 }
 
-save_u2up_net_config_selection() {
+save_u2up_net_external_config_selection() {
 	local rv=1
 	local var_net_config_set=""
 	local var_net_config_current=""
@@ -405,6 +532,58 @@ save_u2up_net_config_selection() {
 		return 0
 	fi
 	case $name in
+	"MAC address")
+		var_net_config_set=u2up_NET_EXTERNAL_MAC_ADDR
+		var_net_config_current=net_external_mac_addr_current
+		;;
+	"IP address/mask")
+		var_net_config_set=u2up_NET_EXTERNAL_ADDR_MASK
+		var_net_config_current=net_external_addr_mask_current
+		;;
+	"IP gateway")
+		var_net_config_set=u2up_NET_EXTERNAL_GW
+		var_net_config_current=net_external_gw_current
+		;;
+	"DNS1")
+		var_net_config_set=u2up_NET_EXTERNAL_DNS1
+		var_net_config_current=net_external_dns1_current
+		;;
+	"DNS2")
+		var_net_config_set=u2up_NET_EXTERNAL_DNS2
+		var_net_config_current=net_external_dns2_current
+		;;
+	*)
+		return 1;
+	esac
+
+	cat ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE} | grep -v "${var_net_config_set}=" > ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
+	echo "local ${var_net_config_set}=$value" >> ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
+	mv ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}
+	rv=$?
+	echo "${var_net_config_current}=${value}"
+	return $rv
+}
+
+save_u2up_net_internal_config_selection() {
+	local rv=1
+	local var_net_config_set=""
+	local var_net_config_current=""
+	local conf_dir=${1}
+	shift
+	local value="$(echo $@ | sed 's/[^:]*://' | sed 's/ *//')"
+	local name="$(echo $@ | sed 's/RENAMED //' | sed 's/:.*//')"
+
+	if [ ! -d "${conf_dir}" ]; then
+		return 1
+	fi
+	if [ -z "${value}" ] || [ "x${name}" = "x${value}" ]; then
+		return 0
+	fi
+	case $name in
+	"MAC address")
+		var_net_config_set=u2up_NET_INTERNAL_MAC_ADDR
+		var_net_config_current=net_internal_mac_addr_current
+		;;
 	"IP address/mask")
 		var_net_config_set=u2up_NET_INTERNAL_ADDR_MASK
 		var_net_config_current=net_internal_addr_mask_current
@@ -413,21 +592,13 @@ save_u2up_net_config_selection() {
 		var_net_config_set=u2up_NET_INTERNAL_GW
 		var_net_config_current=net_internal_gw_current
 		;;
-	"DNS")
-		var_net_config_set=u2up_NET_DNS
-		var_net_config_current=net_dns_current
-		;;
-	"Domains")
-		var_net_config_set=u2up_NET_DOMAINS
-		var_net_config_current=net_domains_current
-		;;
 	*)
 		return 1;
 	esac
 
-	cat ${conf_dir}/${U2UP_NETWORK_CONF_FILE} | grep -v "${var_net_config_set}=" > ${conf_dir}/${U2UP_NETWORK_CONF_FILE}_tmp
-	echo "${var_net_config_set}=$value" >> ${conf_dir}/${U2UP_NETWORK_CONF_FILE}_tmp
-	mv ${conf_dir}/${U2UP_NETWORK_CONF_FILE}_tmp ${conf_dir}/${U2UP_NETWORK_CONF_FILE}
+	cat ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE} | grep -v "${var_net_config_set}=" > ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
+	echo "local ${var_net_config_set}=$value" >> ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
+	mv ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}
 	rv=$?
 	echo "${var_net_config_current}=${value}"
 	return $rv
@@ -458,7 +629,7 @@ save_u2up_install_repo_selection() {
 	esac
 
 	cat ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE} | grep -v "${var_install_repo_set}=" > ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}_tmp
-	echo "${var_install_repo_set}=$value" >> ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}_tmp
+	echo "local ${var_install_repo_set}=$value" >> ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}_tmp
 	mv ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}_tmp ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}
 	rv=$?
 	echo "${var_install_repo_current}=${value}"
@@ -477,9 +648,6 @@ save_u2up_install_repo_selection() {
 #
 enable_u2up_keymap_selection() {
 	local rv=1
-	local u2up_KEYMAP=""
-#	local TARGET_DONE=0
-#	local new_target_done=${1:-0}
 	local conf_dir=${1:-${U2UP_CONF_DIR}}
 
 	if [ ! -f "${conf_dir}/${U2UP_KEYMAP_CONF_FILE}" ]; then
@@ -507,9 +675,6 @@ enable_u2up_keymap_selection() {
 #
 enable_u2up_target_hostname_selection() {
 	local rv=1
-	local u2up_TARGET_HOSTNAME=""
-#	local TARGET_DONE=0
-#	local new_target_done=${1:-0}
 	local conf_dir=${1:-${U2UP_CONF_DIR}}
 
 	if [ ! -f "${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}" ]; then
@@ -536,9 +701,6 @@ enable_u2up_target_hostname_selection() {
 #
 enable_u2up_target_admin_selection() {
 	local rv=1
-	local u2up_TARGET_ADMIN_NAME=""
-#	local TARGET_DONE=0
-#	local new_target_done=${1:-0}
 	local conf_dir=${1:-${U2UP_CONF_DIR}}
 
 	if [ ! -f "${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}" ]; then
@@ -586,72 +748,263 @@ enable_u2up_target_admin_selection() {
 #
 #TO BE DELETED!
 #
-OLD_enable_u2up_net_config_selection() {
-	local rv=0
-	local u2up_NET_INTERNAL_IFNAME=""
-	local u2up_NET_INTERNAL_ADDR_MASK=""
-	local u2up_NET_INTERNAL_GW=""
-	local u2up_NET_DNS=""
-	local u2up_NET_DOMAINS=""
+#OLD_enable_u2up_net_config_selection() {
+#	local rv=0
+#	local u2up_NET_INTERNAL_IFNAME=""
+#	local u2up_NET_INTERNAL_ADDR_MASK=""
+#	local u2up_NET_INTERNAL_GW=""
+#	local u2up_NET_DNS=""
+#	local u2up_NET_DOMAINS=""
 #	local TARGET_DONE=0
 #	local new_target_done=${1:-0}
-	local conf_dir=${1:-${U2UP_CONF_DIR}}
-
-	if [ ! -f "${conf_dir}/${U2UP_NETWORK_CONF_FILE}" ]; then
-		return 1
-	fi
-	source ${conf_dir}/${U2UP_NETWORK_CONF_FILE}
+#	local conf_dir=${1:-${U2UP_CONF_DIR}}
+#
+#	if [ ! -f "${conf_dir}/${U2UP_NETWORK_CONF_FILE}" ]; then
+#		return 1
+#	fi
+#	source ${conf_dir}/${U2UP_NETWORK_CONF_FILE}
 #	if [ $TARGET_DONE -eq 0 ]; then
-		if [ -n "${u2up_NET_INTERNAL_IFNAME}" ] && [ -n "${u2up_NET_INTERNAL_ADDR_MASK}" ] && [ -n "${u2up_NET_INTERNAL_GW}" ]; then
-			nmcli con add type ethernet con-name internal ifname ${u2up_NET_INTERNAL_IFNAME} ip4 ${u2up_NET_INTERNAL_ADDR_MASK} gw4 ${u2up_NET_INTERNAL_GW}
-			rv=$?
-			if [ $rv -eq 0 ]; then
-				nmcli con mod internal connection.zone trusted
-				rv=$?
-			fi
-		fi
+#		if [ -n "${u2up_NET_INTERNAL_IFNAME}" ] && [ -n "${u2up_NET_INTERNAL_ADDR_MASK}" ] && [ -n "${u2up_NET_INTERNAL_GW}" ]; then
+#			nmcli con add type ethernet con-name internal ifname ${u2up_NET_INTERNAL_IFNAME} ip4 ${u2up_NET_INTERNAL_ADDR_MASK} gw4 ${u2up_NET_INTERNAL_GW}
+#			rv=$?
+#			if [ $rv -eq 0 ]; then
+#				nmcli con mod internal connection.zone trusted
+#				rv=$?
+#			fi
+#		fi
 #		if [ $rv -eq 0 ] && [ -n "${u2up_NET_DNS}" ]; then
 #			nmcli con mod internal ipv4.dns "${u2up_NET_DNS}"
-			nmcli con mod internal ipv4.dns "127.0.0.1"
-			rv=$?
+#			nmcli con mod internal ipv4.dns "127.0.0.1"
+#			rv=$?
 #		fi
 #		if [ $rv -eq 0 ]; then
 #			set_target_done_for ${conf_dir}/${U2UP_NETWORK_CONF_FILE} ${new_target_done}
 #			rv=$?
 #		fi
 #	fi
+#	return $rv
+#}
+
+#
+# Enable U2UP configured external networking.
+# (called from installers and chrooted during installation / upgrade)
+#
+enable_u2up_net_external_config_selection() {
+	local net_external_addr=""
+	local net_uuid=""
+	local conf_dir=${1:-${U2UP_CONF_DIR}}
+	local msg=""
+	local rv=0
+
+	if [ $rv -eq 0 ] && [ ! -f "${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}" ]; then
+		msg="Missing static external network configuration!"
+		rv=1
+	fi
+	if [ $rv -eq 0 ]; then
+		source ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}
+		if \
+			[ -z "$u2up_NET_EXTERNAL_IFNAME" ] || \
+			[ -z "$u2up_NET_EXTERNAL_ADDR_MASK" ] || \
+			[ -z "$u2up_NET_EXTERNAL_GW" ] || \
+			[ -z "$u2up_NET_EXTERNAL_DNS1" ];
+		then
+			msg="Incomplete static external network configuration!"
+			rv=1
+		else
+			net_external_addr=$(echo -n "${u2up_NET_EXTERNAL_ADDR_MASK}" | sed 's|\/.*||g')
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		net_uuid=$(uuidgen)
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Unable to generate new UUID for external network configuration!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		cat > /etc/NetworkManager/system-connections/external.nmconnection << EOF
+[connection]
+id=external
+uuid=${net_uuid}
+type=ethernet
+interface-name=${u2up_NET_EXTERNAL_IFNAME}
+permissions=
+zone=trusted
+
+[ethernet]
+mac-address-blacklist=
+
+[ipv4]
+address1=${u2up_NET_EXTERNAL_ADDR_MASK},${u2up_NET_EXTERNAL_GW}
+dns=127.0.0.1;
+dns-search=
+method=manual
+
+[ipv6]
+addr-gen-mode=stable-privacy
+dns-search=
+method=auto
+EOF
+#method=ignore
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to write \"NetworkManager\" static external network configuration!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		chmod 600 /etc/NetworkManager/system-connections/external.nmconnection
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to set file permissions for \"NetworkManager\" static external network configuration!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		cat > /etc/systemd/network/10-external-static.network << EOF
+[Match]
+Name=${u2up_NET_EXTERNAL_IFNAME}
+
+EOF
+		if [ -n "${u2up_NET_EXTERNAL_MAC_ADDR}" ]; then
+			cat >> /etc/systemd/network/10-external-static.network << EOF
+[Link]
+MACAddress=${u2up_NET_EXTERNAL_MAC_ADDR}
+
+EOF
+		fi
+		cat >> /etc/systemd/network/10-external-static.network << EOF
+[Network]
+Address=${u2up_NET_EXTERNAL_ADDR_MASK}
+Gateway=${u2up_NET_EXTERNAL_GW}
+DNS=127.0.0.1
+EOF
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to write \"systemd\" static external network configuration!"
+		fi
+	fi
+#	if [ $rv -eq 0 ]; then
+#		chmod 600 /etc/systemd/network/10-external-static.network
+#		rv=$?
+#		if [ $rv -ne 0 ]; then
+#			msg="Failed to set file permissions for \"systemd\" static external network configuration!"
+#		fi
+#	fi
+	if [ $rv -eq 0 ]; then
+		echo "Disabling \"systemd-resolved\" of the installed system (in-favour of dnsmasq)..." >&2
+		if [ -f "/etc/systemd/system/multi-user.target.wants/systemd-resolved.service" ]; then
+			rm -f /etc/systemd/system/multi-user.target.wants/systemd-resolved.service
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				msg="Failed to remove systemd-resolved.service!"
+			fi
+		fi
+		if [ $rv -eq 0 ] && [ -f "/etc/systemd/system/dbus-org.freedesktop.resolve1.service" ]; then
+			rm -f /etc/systemd/system/dbus-org.freedesktop.resolve1.service
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				msg="Failed to remove dbus-org.freedesktop.resolve1.service!"
+			fi
+		fi
+		if [ $rv -eq 0 ]; then
+			if [ -f "/etc/resolv.conf_orig" ]; then
+				rm -f /etc/resolv.conf
+				rv=$?
+				if [ $rv -ne 0 ]; then
+					msg="Failed to remove old resolv.conf!"
+				fi
+			else
+				mv /etc/resolv.conf /etc/resolv.conf_orig
+				rv=$?
+				if [ $rv -ne 0 ]; then
+					msg="Failed to move original resolv.conf!"
+				fi
+			fi
+		fi
+#		if [ $rv -eq 0 ]; then
+#			cat > /etc/resolv.conf << EOF
+#nameserver 127.0.0.1
+#EOF
+#			rv=$?
+#			if [ $rv -ne 0 ]; then
+#				msg="Failed to write static resolv.conf!"
+#			fi
+#		fi
+#		if [ $rv -eq 0 ]; then
+#			if [ -f "/etc/dnsmasq.conf_orig" ]; then
+#				rm -f /etc/dnsmasq.conf
+#				rv=$?
+#				if [ $rv -ne 0 ]; then
+#					msg="Failed to remove old dnsmasq.conf!"
+#				fi
+#			else
+#				mv /etc/dnsmasq.conf /etc/dnsmasq.conf_orig
+#				rv=$?
+#				if [ $rv -ne 0 ]; then
+#					msg="Failed to move original dnsmasq.conf!"
+#				fi
+#			fi
+#		fi
+#		if [ $rv -eq 0 ]; then
+#			cat > /etc/dnsmasq.conf << EOF
+##/etc/dnsmasq.conf
+#domain-needed
+#bogus-priv
+#no-resolv
+#
+#domain=local.net
+#expand-hosts
+#local=/local.net/
+#
+#listen-address=127.0.0.1
+#listen-address=${net_internal_addr}
+#bind-interfaces
+#
+#conf-dir=/etc/dnsmasq.d,*.conf
+#EOF
+#			rv=$?
+#			if [ $rv -ne 0 ]; then
+#				msg="Failed to write common dnsmasq.conf!"
+#			fi
+#		fi
+		if [ $rv -eq 0 ]; then
+			cat > /etc/dnsmasq.d/10-servers.conf << EOF
+#/etc/dnsmasq.d/10-servers.conf
+server=${u2up_NET_EXTERNAL_DNS1}
+EOF
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				msg="Failed to write dnsmasq.d/10-servers.conf!"
+			fi
+		fi
+	fi
+	if [ $rv -ne 0 ]; then
+		echo "${msg}" >&2
+	fi
 	return $rv
 }
 
-#OLD_execute_net_reconfiguration() {
+#OLD: execute_net_reconfiguration() {
 #
-# Enable U2UP configured networking.
+# Enable U2UP configured internal networking.
 # (called from installers and chrooted during installation / upgrade)
 #
-enable_u2up_net_config_selection() {
-	local u2up_NET_INTERNAL_IFNAME=""
-	local u2up_NET_INTERNAL_ADDR_MASK=""
-	local u2up_NET_INTERNAL_GW=""
-	local u2up_NET_DNS=""
-	local u2up_NET_DOMAINS=""
+enable_u2up_net_internal_config_selection() {
 	local net_internal_addr=""
 	local net_uuid=""
 	local conf_dir=${1:-${U2UP_CONF_DIR}}
 	local msg=""
 	local rv=0
 
-	if [ $rv -eq 0 ] && [ ! -f "${conf_dir}/${U2UP_NETWORK_CONF_FILE}" ]; then
+	if [ $rv -eq 0 ] && [ ! -f "${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}" ]; then
 		msg="Missing static internal network configuration!"
 		rv=1
 	fi
 	if [ $rv -eq 0 ]; then
-		source ${conf_dir}/${U2UP_NETWORK_CONF_FILE}
+		source ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}
 		if \
 			[ -z "$u2up_NET_INTERNAL_IFNAME" ] || \
 			[ -z "$u2up_NET_INTERNAL_ADDR_MASK" ] || \
-			[ -z "$u2up_NET_INTERNAL_GW" ] || \
-			[ -z "$u2up_NET_DNS" ] || \
-			[ -z "$u2up_NET_DOMAINS" ];
+			[ -z "$u2up_NET_INTERNAL_GW" ];
 		then
 			msg="Incomplete static internal network configuration!"
 			rv=1
@@ -663,7 +1016,7 @@ enable_u2up_net_config_selection() {
 		net_uuid=$(uuidgen)
 		rv=$?
 		if [ $rv -ne 0 ]; then
-			msg="Unable to generate new UUID!"
+			msg="Unable to generate new UUID for internal network configuration!"
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
@@ -708,11 +1061,19 @@ EOF
 [Match]
 Name=${u2up_NET_INTERNAL_IFNAME}
 
+EOF
+		if [ -n "${u2up_NET_INTERNAL_MAC_ADDR}" ]; then
+			cat >> /etc/systemd/network/10-internal-static.network << EOF
+[Link]
+MACAddress=${u2up_NET_INTERNAL_MAC_ADDR}
+
+EOF
+		fi
+		cat >> /etc/systemd/network/10-internal-static.network << EOF
 [Network]
 Address=${u2up_NET_INTERNAL_ADDR_MASK}
 Gateway=${u2up_NET_INTERNAL_GW}
 DNS=127.0.0.1
-Domains=${u2up_NET_DOMAINS}
 EOF
 		rv=$?
 		if [ $rv -ne 0 ]; then
@@ -726,37 +1087,37 @@ EOF
 #			msg="Failed to set file permissions for \"systemd\" static internal network configuration!"
 #		fi
 #	fi
-	if [ $rv -eq 0 ]; then
-		echo "Disabling \"systemd-resolved\" of the installed system (in-favour of dnsmasq)..." >&2
-		if [ -f "/etc/systemd/system/multi-user.target.wants/systemd-resolved.service" ]; then
-			rm -f /etc/systemd/system/multi-user.target.wants/systemd-resolved.service
-			rv=$?
-			if [ $rv -ne 0 ]; then
-				msg="Failed to remove systemd-resolved.service!"
-			fi
-		fi
-		if [ $rv -eq 0 ] && [ -f "/etc/systemd/system/dbus-org.freedesktop.resolve1.service" ]; then
-			rm -f /etc/systemd/system/dbus-org.freedesktop.resolve1.service
-			rv=$?
-			if [ $rv -ne 0 ]; then
-				msg="Failed to remove dbus-org.freedesktop.resolve1.service!"
-			fi
-		fi
-		if [ $rv -eq 0 ]; then
-			if [ -f "/etc/resolv.conf_orig" ]; then
-				rm -f /etc/resolv.conf
-				rv=$?
-				if [ $rv -ne 0 ]; then
-					msg="Failed to remove old resolv.conf!"
-				fi
-			else
-				mv /etc/resolv.conf /etc/resolv.conf_orig
-				rv=$?
-				if [ $rv -ne 0 ]; then
-					msg="Failed to move original resolv.conf!"
-				fi
-			fi
-		fi
+#	if [ $rv -eq 0 ]; then
+#		echo "Disabling \"systemd-resolved\" of the installed system (in-favour of dnsmasq)..." >&2
+#		if [ -f "/etc/systemd/system/multi-user.target.wants/systemd-resolved.service" ]; then
+#			rm -f /etc/systemd/system/multi-user.target.wants/systemd-resolved.service
+#			rv=$?
+#			if [ $rv -ne 0 ]; then
+#				msg="Failed to remove systemd-resolved.service!"
+#			fi
+#		fi
+#		if [ $rv -eq 0 ] && [ -f "/etc/systemd/system/dbus-org.freedesktop.resolve1.service" ]; then
+#			rm -f /etc/systemd/system/dbus-org.freedesktop.resolve1.service
+#			rv=$?
+#			if [ $rv -ne 0 ]; then
+#				msg="Failed to remove dbus-org.freedesktop.resolve1.service!"
+#			fi
+#		fi
+#		if [ $rv -eq 0 ]; then
+#			if [ -f "/etc/resolv.conf_orig" ]; then
+#				rm -f /etc/resolv.conf
+#				rv=$?
+#				if [ $rv -ne 0 ]; then
+#					msg="Failed to remove old resolv.conf!"
+#				fi
+#			else
+#				mv /etc/resolv.conf /etc/resolv.conf_orig
+#				rv=$?
+#				if [ $rv -ne 0 ]; then
+#					msg="Failed to move original resolv.conf!"
+#				fi
+#			fi
+#		fi
 #		if [ $rv -eq 0 ]; then
 #			cat > /etc/resolv.conf << EOF
 #nameserver 127.0.0.1
@@ -803,17 +1164,17 @@ EOF
 				msg="Failed to write common dnsmasq.conf!"
 			fi
 		fi
-		if [ $rv -eq 0 ]; then
-			cat > /etc/dnsmasq.d/10-servers.conf << EOF
-#/etc/dnsmasq.d/10-servers.conf
-server=${u2up_NET_INTERNAL_GW}
-EOF
-			rv=$?
-			if [ $rv -ne 0 ]; then
-				msg="Failed to write dnsmasq.d/10-servers.conf!"
-			fi
-		fi
-	fi
+#		if [ $rv -eq 0 ]; then
+#			cat > /etc/dnsmasq.d/10-servers.conf << EOF
+##/etc/dnsmasq.d/10-servers.conf
+#server=${u2up_NET_INTERNAL_GW}
+#EOF
+#			rv=$?
+#			if [ $rv -ne 0 ]; then
+#				msg="Failed to write dnsmasq.d/10-servers.conf!"
+#			fi
+#		fi
+#	fi
 	if [ $rv -ne 0 ]; then
 		echo "${msg}" >&2
 	fi
@@ -826,9 +1187,6 @@ EOF
 #
 enable_u2up_install_repo_selection() {
 	local rv=0
-	local u2up_INSTALL_REPO_BASE_URL=""
-#	local TARGET_DONE=0
-#	local new_target_done=${1:-0}
 	local conf_dir=${1:-${U2UP_CONF_DIR}}
 
 	if [ ! -f "${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
@@ -874,8 +1232,6 @@ enable_u2up_install_repo_selection() {
 prepare_u2up_upgrade_configuration() {
 	local rv=0
 	local conf_dir=$1
-	local u2up_TARGET_DISK=""
-	local u2up_TARGET_PART=""
 	local upgrade_disk_part
 
 	if [ -z "${conf_dir}" ]; then
@@ -911,8 +1267,12 @@ prepare_u2up_upgrade_configuration() {
 		cp -pf ${U2UP_CONF_DIR}/${U2UP_TARGET_ADMIN_CONF_FILE} ${conf_dir}/
 		(( rv+=$? ))
 	fi
-	if [ ! -e "${conf_dir}/${U2UP_NETWORK_CONF_FILE}" ]; then
-		cp -pf ${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE} ${conf_dir}/
+	if [ ! -e "${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}" ]; then
+		cp -pf ${U2UP_CONF_DIR}/${U2UP_NETWORK_EXTERNAL_CONF_FILE} ${conf_dir}/
+		(( rv+=$? ))
+	fi
+	if [ ! -e "${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}" ]; then
+		cp -pf ${U2UP_CONF_DIR}/${U2UP_NETWORK_INTERNAL_CONF_FILE} ${conf_dir}/
 		(( rv+=$? ))
 	fi
 	if [ ! -e "${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
@@ -1054,14 +1414,14 @@ check_images_bundle_initial_content() {
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		U2UP_IMAGE_ROOTFS_NAME=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} 2> /dev/null | grep u2up_ROOTFS_NAME | sed 's/u2up_ROOTFS_NAME\=//')
+		U2UP_IMAGE_ROOTFS_NAME=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} 2> /dev/null | grep "^local u2up_ROOTFS_NAME" | sed 's/^.*u2up_ROOTFS_NAME\=//')
 		if [ -z "${U2UP_IMAGE_ROOTFS_NAME}" ]; then
 			msg="Images bundle installation rootfs archive name not set!"
 			rv=1
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		U2UP_IMAGE_ROOTFS_DATETIME=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} 2> /dev/null | grep u2up_ROOTFS_DATETIME | sed 's/u2up_ROOTFS_DATETIME\=//')
+		U2UP_IMAGE_ROOTFS_DATETIME=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} 2> /dev/null | grep "^local u2up_ROOTFS_DATETIME" | sed 's/^.*u2up_ROOTFS_DATETIME\=//')
 		if [ -z "${U2UP_IMAGE_ROOTFS_DATETIME}" ]; then
 			msg="Images bundle installation rootfs archive Date-TimeStamp not set!"
 			rv=1
@@ -1270,14 +1630,14 @@ check_images_bundle_all_content() {
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		U2UP_IMAGE_ROOTFS_NAME=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} 2> /dev/null | grep u2up_ROOTFS_NAME | sed 's/u2up_ROOTFS_NAME\=//')
+		U2UP_IMAGE_ROOTFS_NAME=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} 2> /dev/null | grep "^local u2up_ROOTFS_NAME" | sed 's/^.*u2up_ROOTFS_NAME\=//')
 		if [ -z "${U2UP_IMAGE_ROOTFS_NAME}" ]; then
 			msg="Images bundle installation rootfs archive name not set!"
 			rv=1
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		U2UP_IMAGE_ROOTFS_DATETIME=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} 2> /dev/null | grep u2up_ROOTFS_DATETIME | sed 's/u2up_ROOTFS_DATETIME\=//')
+		U2UP_IMAGE_ROOTFS_DATETIME=$(tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IDS_CONF_FILE} 2> /dev/null | grep "^local u2up_ROOTFS_DATETIME" | sed 's/^.*u2up_ROOTFS_DATETIME\=//')
 		if [ -z "${U2UP_IMAGE_ROOTFS_DATETIME}" ]; then
 			msg="Images bundle installation rootfs archive Date-TimeStamp not set!"
 			rv=1
@@ -1453,8 +1813,12 @@ evaluate_u2up_configurations() {
 #			enable_u2up_target_admin_selection
 #			rv=$?
 			;;
-		${U2UP_NETWORK_CONF_FILE})
-#			enable_u2up_net_config_selection
+		${U2UP_NETWORK_EXTERNAL_CONF_FILE})
+#			enable_u2up_net_external_config_selection
+#			rv=$?
+			;;
+		${U2UP_NETWORK_INTERNAL_CONF_FILE})
+#			enable_u2up_net_internal_config_selection
 #			rv=$?
 			;;
 		${U2UP_INSTALL_REPO_CONF_FILE})

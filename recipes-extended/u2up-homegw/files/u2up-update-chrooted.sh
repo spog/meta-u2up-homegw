@@ -77,21 +77,8 @@ fi
 echo "Successfully extracted remaining content from images bundle!" >&2
 
 echo "Creating new boot \"${current_root_part_label}\" menu entry..." >&2
-if [ ! -f "${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE}" ]; then
-	echo "Program terminated (missing: ${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE})!" >&2
-	exit 1
-fi
-source ${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE}
-rv=0
-echo "title ${current_root_part_label} (${u2up_ROOTFS_DATETIME})" > /boot/loader/entries/${current_root_part_label}.conf
-((rv+=$?))
-echo "linux /bzImage${current_root_part_label_suffix}" >> /boot/loader/entries/${current_root_part_label}.conf
-((rv+=$?))
-echo "options label=${current_root_part_label} root=PARTUUID=${current_root_part_uuid} rootwait rootfstype=ext4 console=tty0 ttyprintk.tioccons=1" >> /boot/loader/entries/${current_root_part_label}.conf
-((rv+=$?))
-echo "initrd /microcode${current_root_part_label_suffix}.cpio" >> /boot/loader/entries/${current_root_part_label}.conf
-((rv+=$?))
-if [ $rv -ne 0 ]; then
+create_new_boot ${current_root_part_label} ${current_root_part_label_suffix} ${current_root_part_uuid}
+if [ $? -ne 0 ]; then
 	echo "Failed to create new boot menu entry!" >&2
 	exit 1
 fi
@@ -146,13 +133,20 @@ echo "Successfully configured \"fstab\" for common logging partition!" >&2
 #echo "Successfully set \"done\" configuring target disk and partitions!" >&2
 
 echo "Configuring \"internal network\" of the installed system..." >&2
-#execute_net_reconfiguration
-enable_u2up_net_config_selection
+enable_u2up_net_internal_config_selection
 if [ $? -ne 0 ]; then
 	echo "Failed to configure \"internal network\" of the installed system!" >&2
 	exit 1
 fi
 echo "Successfully configured \"internal network\" of the installed system!" >&2
+
+echo "Configuring \"external network\" of the installed system..." >&2
+enable_u2up_net_external_config_selection
+if [ $? -ne 0 ]; then
+	echo "Failed to configure \"external network\" of the installed system!" >&2
+	exit 1
+fi
+echo "Successfully configured \"external network\" of the installed system!" >&2
 
 echo "Configuring SW packages repository for the installed system..." >&2
 enable_u2up_install_repo_selection

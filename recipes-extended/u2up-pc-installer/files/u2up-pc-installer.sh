@@ -155,49 +155,6 @@ display_target_disk_submenu() {
 	save_u2up_target_disk_selection $selection
 }
 
-display_net_internal_ifname_submenu() {
-	local net_internal_ifname_current=$1
-	local radiolist=""
-	local tag="start_tag"
-	local ifname=""
-	local mac=""
-
-	radiolist=$(ip link | grep "BROADCAST,MULTICAST" | sed 's/[0-9]*: //' | sed 's/: .*//g' | while read ifname; do
-		if [ -n "$ifname" ] && [[ "$ifname" != "$tag"* ]]; then
-			tag=$ifname
-			mac="$(ip link show dev $ifname | grep "link\/ether" | sed 's/ *link\/ether *//' | sed 's/ .*//')"
-			if [ -n "$net_internal_ifname_current" ] && [ "$tag" == "$net_internal_ifname_current" ]; then
-				echo -n "${tag}|"$mac"|on|"
-			else
-				echo -n "${tag}|"$mac"|off|"
-			fi
-		fi
-	done)
-
-	exec 3>&1
-	selection=$(IFS='|'; \
-	dialog \
-		--backtitle "${U2UP_BACKTITLE}" \
-		--title "Network internal interface selection" \
-		--clear \
-		--cancel-label "Cancel" \
-		--radiolist "Please select:" $HEIGHT $WIDTH 0 \
-		${radiolist} \
-	2>&1 1>&3)
-	exit_status=$?
-	exec 3>&-
-
-	case $exit_status in
-	$DIALOG_CANCEL|$DIALOG_ESC)
-		clear
-		echo "Return from submenu." >&2
-		return 0
-		;;
-	esac
-
-	save_u2up_net_internal_iface_selection $selection
-}
-
 display_target_part_submenu() {
 	local target_disk_current=$1
 	local target_part_current=$2
@@ -258,18 +215,6 @@ check_target_disk_set() {
 	fi
 }
 
-check_net_internal_ifname_set() {
-	if [ -f "${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
-		source ${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
-	else
-		u2up_NET_INTERNAL_IFNAME=""
-	fi
-	if [ -z "$u2up_NET_INTERNAL_IFNAME" ]; then
-		display_result "Network internal interface check" "Please select your network internal interface!"
-		return 1
-	fi
-}
-
 check_install_repo_config_set() {
 	if [ -f "${U2UP_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
 		source ${U2UP_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}
@@ -320,24 +265,6 @@ check_target_disk_configuration() {
 		return $rv
 	fi
 }
-
-#check_network_configuration() {
-#	if [ -f "${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
-#		source ${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
-#	else
-#		u2up_NET_INTERNAL_IFNAME=""
-#	fi
-#	if \
-#		[ -z "$u2up_NET_INTERNAL_IFNAME" ] || \
-#		[ -z "$u2up_NET_INTERNAL_ADDR_MASK" ] || \
-#		[ -z "$u2up_NET_INTERNAL_GW" ] || \
-#		[ -z "$u2up_NET_DNS" ] || \
-#		[ -z "$u2up_NET_DOMAINS" ];
-#	then
-#		display_result "Network configuration check" "Please set your networking parameters!"
-#		return 1
-#	fi
-#}
 
 check_target_configurations() {
 	local rv=1
@@ -779,128 +706,6 @@ display_target_partsizes_submenu() {
 	done
 }
 
-display_target_hostname_submenu() {
-	local current_set=""
-	local current_item=""
-	local target_hostname_current=${1:-"$(hostname)"}
-	local rv=0
-
-	while true; do
-		exec 3>&1
-		selection=$(IFS='|'; \
-		dialog \
-			--backtitle "${U2UP_BACKTITLE}" \
-			--title "Hostname configuration [${target_hostname_current}]" \
-			--clear \
-			--default-item "$current_item" \
-			--cancel-label "Cancel" \
-			--extra-label "Change" \
-			--cr-wrap \
-			--inputmenu "\nPlease set:" $HEIGHT 0 6 \
-			"Hostname:" ${target_hostname_current} \
-		2>&1 1>&3)
-		exit_status=$?
-		exec 3>&-
-
-		case $exit_status in
-		$DIALOG_CANCEL|$DIALOG_ESC)
-			clear
-			echo "Return from submenu." >&2
-			return 1
-			;;
-		esac
-
-		current_item="$(get_item_selection $selection)"
-		current_set="$(save_u2up_target_hostname_selection ${U2UP_CONF_DIR} $selection)"
-		if [ -n "$current_set" ]; then
-			#Resize pressed: set new dialog values
-			eval $current_set
-		else
-			#Ok
-			save_u2up_target_hostname_selection ${U2UP_CONF_DIR} "Hostname: ${target_hostname_current}"
-			(( rv+=$? ))
-			return $rv
-		fi
-	done
-}
-
-display_target_admin_submenu() {
-	local current_set=""
-	local current_item=""
-	local target_admin_name_current=${1:-"admin"}
-	local rv=0
-
-	while true; do
-		exec 3>&1
-		selection=$(IFS='|'; \
-		dialog \
-			--backtitle "${U2UP_BACKTITLE}" \
-			--title "Hostname configuration [${target_admin_name_current}]" \
-			--clear \
-			--default-item "$current_item" \
-			--cancel-label "Cancel" \
-			--extra-label "Change" \
-			--cr-wrap \
-			--inputmenu "\nPlease set:" $HEIGHT 0 6 \
-			"Admin name:" ${target_admin_name_current} \
-		2>&1 1>&3)
-		exit_status=$?
-		exec 3>&-
-
-		case $exit_status in
-		$DIALOG_CANCEL|$DIALOG_ESC)
-			clear
-			echo "Return from submenu." >&2
-			return 1
-			;;
-		esac
-
-		current_item="$(get_item_selection $selection)"
-		current_set="$(save_u2up_target_admin_selection ${U2UP_CONF_DIR} $selection)"
-		if [ -n "$current_set" ]; then
-			#Resize pressed: set new dialog values
-			eval $current_set
-		else
-			#Ok
-			save_u2up_target_admin_selection ${U2UP_CONF_DIR} "Admin name: ${target_admin_name_current}"
-			(( rv+=$? ))
-			return $rv
-		fi
-	done
-}
-
-#execute_net_reconfiguration() {
-#	local TARGET_ROOT_PATH_PREFIX=$1
-#	local NET_INTERNAL_IFNAME=""
-#	local NET_INTERNAL_ADDR_MASK=""
-#	local NET_INTERNAL_GW=""
-#	local NET_DNS=""
-#	local NET_DOMAINS=""
-#	local rv=1
-#	if [ -z "$TARGET_ROOT_PATH_PREFIX" ]; then
-#		return $rv
-#	fi
-#	check_network_configuration
-#	rv=$?
-#	if [ $rv -ne 0 ]; then
-#		return $rv
-#	fi
-#	if [ -f "${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
-#		source ${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
-#	fi
-#	cat > ${TARGET_ROOT_PATH_PREFIX}etc/systemd/network/10-internal-static.network << EOF
-#[Match]
-#Name=${u2up_NET_INTERNAL_IFNAME}
-#
-#[Network]
-#Address=${u2up_NET_INTERNAL_ADDR_MASK}
-#Gateway=${u2up_NET_INTERNAL_GW}
-#DNS=${u2up_NET_DNS}
-#Domains=${u2up_NET_DOMAINS}
-#EOF
-#	return $rv
-#}
-
 display_install_repo_config_submenu() {
 	local current_set=""
 	local current_item=""
@@ -1131,47 +936,45 @@ main_loop () {
 	local rv=1
 	local current_tag='1'
 	local root_part_label=""
+	local net_external_mac=""
 	local net_internal_mac=""
-	local u2up_KEYMAP=""
-	local u2up_TARGET_DISK=""
-	local u2up_TARGET_PART=""
-	local u2up_TARGET_BOOT_PARTSZ=""
-	local u2up_TARGET_LOG_PARTSZ=""
-	local u2up_TARGET_ROOTA_PARTSZ=""
-	local u2up_TARGET_ROOTB_PARTSZ=""
-	local u2up_TARGET_HOSTNAME=""
-	local u2up_TARGET_ADMIN_NAME=""
-	local NET_INTERNAL_IFNAME=""
-	local NET_INTERNAL_ADDR_MASK=""
-	local NET_INTERNAL_GW=""
-	local NET_DNS=""
-	local NET_DOMAINS=""
-	local INSTALL_REPO_BASE_URL=""
 
 	while true; do
-		if [ -f "${U2UP_CONF_DIR}/${U2UP_KEYMAP_CONF_FILE}" ]; then
-			source ${U2UP_CONF_DIR}/${U2UP_KEYMAP_CONF_FILE}
+		if [ -d "${U2UP_CONF_DIR}" ]; then
+			for conf_file in $(ls ${U2UP_CONF_DIR}/*-conf); do
+				source $conf_file
+			done
 		fi
-		if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
-			source ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
-		fi
+#		if [ -f "${U2UP_CONF_DIR}/${U2UP_KEYMAP_CONF_FILE}" ]; then
+#			source ${U2UP_CONF_DIR}/${U2UP_KEYMAP_CONF_FILE}
+#		fi
+#		if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
+#			source ${U2UP_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
+#		fi
 		root_part_label="$(get_root_label ${u2up_TARGET_DISK} ${u2up_TARGET_PART})"
-		if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE}" ]; then
-			source ${U2UP_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE}
-		fi
-		if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_ADMIN_CONF_FILE}" ]; then
-			source ${U2UP_CONF_DIR}/${U2UP_TARGET_ADMIN_CONF_FILE}
-		fi
-		if [ -f "${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}" ]; then
-			source ${U2UP_CONF_DIR}/${U2UP_NETWORK_CONF_FILE}
+#		if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE}" ]; then
+#			source ${U2UP_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE}
+#		fi
+#		if [ -f "${U2UP_CONF_DIR}/${U2UP_TARGET_ADMIN_CONF_FILE}" ]; then
+#			source ${U2UP_CONF_DIR}/${U2UP_TARGET_ADMIN_CONF_FILE}
+#		fi
+#		if [ -f "${U2UP_CONF_DIR}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}" ]; then
+#			source ${U2UP_CONF_DIR}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}
+#		fi
+#		if [ -f "${U2UP_CONF_DIR}/${U2UP_NETWORK_INTERNAL_CONF_FILE}" ]; then
+#			source ${U2UP_CONF_DIR}/${U2UP_NETWORK_INTERNAL_CONF_FILE}
+#		fi
+		net_external_mac=""
+		if [ -n "${u2up_NET_EXTERNAL_IFNAME}" ]; then
+			net_external_mac="$(ip link show dev $u2up_NET_EXTERNAL_IFNAME | grep "link\/ether" | sed 's/ *link\/ether *//' | sed 's/ .*//')"
 		fi
 		net_internal_mac=""
 		if [ -n "${u2up_NET_INTERNAL_IFNAME}" ]; then
 			net_internal_mac="$(ip link show dev $u2up_NET_INTERNAL_IFNAME | grep "link\/ether" | sed 's/ *link\/ether *//' | sed 's/ .*//')"
 		fi
-		if [ -f "${U2UP_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
-			source ${U2UP_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}
-		fi
+#		if [ -f "${U2UP_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
+#			source ${U2UP_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}
+#		fi
 
 		exec 3>&1
 		selection=$(dialog \
@@ -1180,7 +983,7 @@ main_loop () {
 			--clear \
 			--cancel-label "Exit" \
 			--default-item $current_tag \
-			--menu "Please select:" $HEIGHT $WIDTH 10 \
+			--menu "Please select:" $HEIGHT $WIDTH 12 \
 			"1" "Keyboard mapping [${u2up_KEYMAP}]" \
 			"2" "Target disk [${u2up_TARGET_DISK}]" \
 			"3" "Disk partitions \
@@ -1190,11 +993,13 @@ main_loop () {
 [rootB:${u2up_TARGET_ROOTB_PARTSZ}G]" \
 			"4" "Hostname [${u2up_TARGET_HOSTNAME}]" \
 			"5" "Administrator [${u2up_TARGET_ADMIN_NAME}]" \
-			"6" "Network internal interface [${u2up_NET_INTERNAL_IFNAME} - ${net_internal_mac}]" \
-			"7" "Static network configuration [${u2up_NET_INTERNAL_ADDR_MASK}]" \
-			"8" "Installation packages repo [${u2up_INSTALL_REPO_BASE_URL}]" \
-			"9" "Installation partition [${u2up_TARGET_PART} - ${root_part_label}]" \
-			"10" "Install (${U2UP_IMAGE_ROOTFS_DATETIME})" \
+			"6" "Network external interface [${u2up_NET_EXTERNAL_IFNAME} - ${net_external_mac}]" \
+			"7" "Network internal interface [${u2up_NET_INTERNAL_IFNAME} - ${net_internal_mac}]" \
+			"8" "Static network external configuration [${u2up_NET_EXTERNAL_ADDR_MASK}]" \
+			"9" "Static network internal configuration [${u2up_NET_INTERNAL_ADDR_MASK}]" \
+			"10" "Installation packages repo [${u2up_INSTALL_REPO_BASE_URL}]" \
+			"11" "Installation partition [${u2up_TARGET_PART} - ${root_part_label}]" \
+			"12" "Install (${U2UP_IMAGE_ROOTFS_DATETIME})" \
 		2>&1 1>&3)
 		exit_status=$?
 		exec 3>&-
@@ -1248,49 +1053,86 @@ main_loop () {
 		4)
 			local target_hostname_old=$u2up_TARGET_HOSTNAME
 			display_target_hostname_submenu \
+				$U2UP_CONF_DIR \
 				$u2up_TARGET_HOSTNAME
 			;;
 		5)
 			local target_admin_name_old=$u2up_TARGET_ADMIN_NAME
 			display_target_admin_submenu \
+				$U2UP_CONF_DIR \
 				$u2up_TARGET_ADMIN_NAME
 			;;
 		6)
-			display_net_internal_ifname_submenu \
-				$u2up_NET_INTERNAL_IFNAME
+			display_net_external_ifname_submenu \
+				$U2UP_CONF_DIR \
+				$u2up_NET_EXTERNAL_IFNAME
 			;;
 		7)
+			display_net_internal_ifname_submenu \
+				$U2UP_CONF_DIR \
+				$u2up_NET_INTERNAL_IFNAME
+			;;
+		8)
+			local net_external_mac_addr_old=$u2up_NET_EXTERNAL_MAC_ADDR
+			local net_external_addr_mask_old=$u2up_NET_EXTERNAL_ADDR_MASK
+			local net_external_gw_old=$u2up_NET_EXTERNAL_GW
+			local net_external_dns1_old=$u2up_NET_EXTERNAL_DNS1
+			local net_external_dns2_old=$u2up_NET_EXTERNAL_DNS2
+			display_net_external_config_submenu \
+				$U2UP_CONF_DIR \
+				$u2up_NET_EXTERNAL_MAC_ADDR \
+				$u2up_NET_EXTERNAL_ADDR_MASK \
+				$u2up_NET_EXTERNAL_GW \
+				$u2up_NET_EXTERNAL_DNS1 \
+				$u2up_NET_EXTERNAL_DNS2
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				# Restore old network external configuration
+				if [ -n "${net_external_mac_addr_mask}" ]; then
+					save_u2up_net_external_config_selection ${U2UP_CONF_DIR} "MAC address: ${net_external_mac_addr_old}"
+				fi
+				if [ -n "${net_external_addr_mask_old}" ]; then
+					save_u2up_net_external_config_selection ${U2UP_INSTALL_CONF_DIR} "IP address/mask: ${net_external_addr_mask_old}"
+				fi
+				if [ -n "${net_internal_gw_old}" ]; then
+					save_u2up_net_external_config_selection ${U2UP_INSTALL_CONF_DIR} "IP gateway: ${net_external_gw_old}"
+				fi
+				if [ -n "${net_external_dns1_old}" ]; then
+					save_u2up_net_external_config_selection ${U2UP_INSTALL_CONF_DIR} "DNS1: ${net_external_dns1_old}"
+				fi
+				if [ -n "${net_external_dns2_old}" ]; then
+					save_u2up_net_external_config_selection ${U2UP_INSTALL_CONF_DIR} "DNS2: ${net_external_dns2_old}"
+				fi
+#			else
+#				enable_u2up_net_external_config_selection
+			fi
+			;;
+		9)
+			local net_internal_mac_addr_old=$u2up_NET_INTERNAL_MAC_ADDR
 			local net_internal_addr_mask_old=$u2up_NET_INTERNAL_ADDR_MASK
 			local net_internal_gw_old=$u2up_NET_INTERNAL_GW
-			local net_dns_old=$u2up_NET_DNS
-			local net_domains_old=$u2up_NET_DOMAINS
-			display_net_config_submenu \
+			display_net_internal_config_submenu \
 				$U2UP_CONF_DIR \
+				$u2up_NET_INTERNAL_MAC_ADDR \
 				$u2up_NET_INTERNAL_ADDR_MASK \
-				$u2up_NET_INTERNAL_GW \
-				$u2up_NET_DNS \
-				$u2up_NET_DOMAINS
+				$u2up_NET_INTERNAL_GW
 			rv=$?
 			if [ $rv -ne 0 ]; then
 				# Restore old network configuration
+				if [ -n "${net_internal_mac_addr_mask}" ]; then
+					save_u2up_net_internal_config_selection ${U2UP_CONF_DIR} "MAC address: ${net_internal_mac_addr_old}"
+				fi
 				if [ -n "${net_internal_addr_mask_old}" ]; then
-					save_u2up_net_config_selection ${U2UP_CONF_DIR} "IP address/mask: ${net_internal_addr_mask_old}"
+					save_u2up_net_internal_config_selection ${U2UP_CONF_DIR} "IP address/mask: ${net_internal_addr_mask_old}"
 				fi
 				if [ -n "${net_internal_gw_old}" ]; then
-					save_u2up_net_config_selection ${U2UP_CONF_DIR} "IP gateway: ${net_internal_gw_old}"
+					save_u2up_net_internal_config_selection ${U2UP_CONF_DIR} "IP gateway: ${net_internal_gw_old}"
 				fi
-				if [ -n "${net_dns_old}" ]; then
-					save_u2up_net_config_selection ${U2UP_CONF_DIR} "DNS: ${net_dns_old}"
-				fi
-				if [ -n "${net_domains_old}" ]; then
-					save_u2up_net_config_selection ${U2UP_CONF_DIR} "Domains: ${net_domains_old}"
-				fi
-			else
-#				execute_net_reconfiguration "/"
-				enable_u2up_net_config_selection
+#			else
+#				enable_u2up_net_internal_config_selection
 			fi
 			;;
-		8)
+		10)
 			local install_repo_base_url_old=$u2up_INSTALL_REPO_BASE_URL
 			display_install_repo_config_submenu \
 				$u2up_INSTALL_REPO_BASE_URL
@@ -1302,12 +1144,12 @@ main_loop () {
 				fi
 			fi
 			;;
-		9)
+		11)
 			display_target_part_submenu \
 				$u2up_TARGET_DISK \
 				$u2up_TARGET_PART
 			;;
-		10)
+		12)
 			execute_target_install
 			;;
 		esac
