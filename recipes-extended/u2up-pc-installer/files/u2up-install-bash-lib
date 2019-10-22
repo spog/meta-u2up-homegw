@@ -1008,6 +1008,16 @@ EOF
 			fi
 		fi
 	fi
+	if [ $rv -eq 0 ]; then
+		echo "Enabling \"IPv4 forwarding\"..." >&2
+		if [ -f "/etc/sysctl.conf" ]; then
+			sed -i 's|.*net.ipv4.ip_forward=.*|net.ipv4.ip_forward=1|' /etc/sysctl.conf
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				msg="Failed to enable \"IPv4 forwarding\"!"
+			fi
+		fi
+	fi
 	if [ $rv -ne 0 ]; then
 		echo "${msg}" >&2
 	fi
