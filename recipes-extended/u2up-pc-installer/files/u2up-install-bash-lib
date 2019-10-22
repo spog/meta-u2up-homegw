@@ -890,6 +890,37 @@ EOF
 #		fi
 #	fi
 	if [ $rv -eq 0 ]; then
+		echo "Disabling \"systemd-networked\" of the installed system (in-favour of NetworkManager)..." >&2
+		if [ -f "/etc/systemd/system/network-online.target.wants/systemd-networkd-wait-online.service" ]; then
+			rm -f /etc/systemd/system/network-online.target.wants/systemd-networkd-wait-online.service
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				msg="Failed to remove systemd-networkd-wait-online.service!"
+			fi
+		fi
+		if [ $rv -eq 0 ] && [ -f "/etc/systemd/system/dbus-org.freedesktop.network1.service" ]; then
+			rm -f /etc/systemd/system/dbus-org.freedesktop.network1.service
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				msg="Failed to remove dbus-org.freedesktop.network1.service!"
+			fi
+		fi
+		if [ $rv -eq 0 ] && [ -f "/etc/systemd/system/multi-user.target.wants/systemd-networkd.service" ]; then
+			rm -f /etc/systemd/system/multi-user.target.wants/systemd-networkd.service
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				msg="Failed to remove systemd-networkd.service!"
+			fi
+		fi
+		if [ $rv -eq 0 ] && [ -f "/etc/systemd/system/sockets.target.wants/systemd-networkd.socket" ]; then
+			rm -f /etc/systemd/system/sockets.target.wants/systemd-networkd.socket
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				msg="Failed to remove systemd-networkd.socket!"
+			fi
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
 		echo "Disabling \"systemd-resolved\" of the installed system (in-favour of dnsmasq)..." >&2
 		if [ -f "/etc/systemd/system/multi-user.target.wants/systemd-resolved.service" ]; then
 			rm -f /etc/systemd/system/multi-user.target.wants/systemd-resolved.service
