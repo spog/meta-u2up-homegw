@@ -829,7 +829,7 @@ uuid=${net_uuid}
 type=ethernet
 interface-name=${u2up_NET_EXTERNAL_IFNAME}
 permissions=
-zone=trusted
+zone=external
 
 [ethernet]
 mac-address-blacklist=
