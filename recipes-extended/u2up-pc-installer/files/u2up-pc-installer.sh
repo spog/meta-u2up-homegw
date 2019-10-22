@@ -773,8 +773,10 @@ configure_default_boot_entry() {
 		rv=1
 	fi
 	if [ $rv -eq 0 ]; then
-		echo "Mounting boot filesystem:" >&2
-		mount -t vfat -o umask=0077 /dev/${target_disk}1 /boot >&2
+		echo "Mounting boot filesystem..." >&2
+		umount ${U2UP_TMP_BOOT_DIR} >&2
+		mkdir -p ${U2UP_TMP_BOOT_DIR} >&2
+		mount -t vfat -o umask=0077 /dev/${target_disk}1 ${U2UP_TMP_BOOT_DIR} >&2
 		rv=$?
 		if [ $rv -ne 0 ]; then
 			msg="Failed to mount boot filesystem!"
@@ -786,6 +788,14 @@ configure_default_boot_entry() {
 		rv=$?
 		if [ $rv -ne 0 ]; then
 			msg="Failed to set default boot enrtry!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Unmounting boot filesystem..." >&2
+		umount ${U2UP_TMP_BOOT_DIR} >&2
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to unmount boot filesystem!"
 		fi
 	fi
 	if [ $rv -eq 0 ]; then

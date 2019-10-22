@@ -43,17 +43,19 @@ if [ -z "$current_root_part_uuid" ]; then
 	exit 1
 fi
 
-echo "Mounting /boot..." >&2
-mount -t vfat -o umask=0077 /dev/${current_target_disk}1 /boot
+echo "Mounting ${U2UP_TMP_BOOT_DIR}..." >&2
+umount ${U2UP_TMP_BOOT_DIR} >&2
+mkdir -p ${U2UP_TMP_BOOT_DIR} >&2
+mount -t vfat -o umask=0077 /dev/${current_target_disk}1 ${U2UP_TMP_BOOT_DIR} >&2
 if [ $? -ne 0 ]; then
-	echo "Failed to mount /boot!" >&2
+	echo "Failed to mount ${U2UP_TMP_BOOT_DIR}!" >&2
 	exit 1
 fi
-echo "Successfully mounted /boot!" >&2
+echo "Successfully mounted ${U2UP_TMP_BOOT_DIR}!" >&2
 
 echo "Mounting /var/volatile/log..." >&2
-mkdir -p /var/volatile/log
-mount /dev/${current_target_disk}2 /var/volatile/log
+mkdir -p /var/volatile/log >&2
+mount /dev/${current_target_disk}2 /var/volatile/log >&2
 if [ $? -ne 0 ]; then
 	echo "Failed to mount /var/volatile/log!" >&2
 	exit 1
@@ -108,13 +110,13 @@ if [ $? -ne 0 ]; then
 fi
 echo "Successfully configured target admin!" >&2
 
-echo "Configuring \"fstab\" for common boot partition..." >&2
-echo "/dev/${current_target_disk}1 /boot vfat umask=0077 0 1" >> /etc/fstab
-if [ $? -ne 0 ]; then
-	echo "Failed to configure \"fstab\" for common boot partition!" >&2
-	exit 1
-fi
-echo "Successfully configured \"fstab\" for common boot partition!" >&2
+#echo "Configuring \"fstab\" for common boot partition..." >&2
+#echo "/dev/${current_target_disk}1 /boot vfat umask=0077 0 1" >> /etc/fstab
+#if [ $? -ne 0 ]; then
+#	echo "Failed to configure \"fstab\" for common boot partition!" >&2
+#	exit 1
+#fi
+#echo "Successfully configured \"fstab\" for common boot partition!" >&2
 
 echo "Configuring \"fstab\" for common logging partition..." >&2
 echo "/dev/${current_target_disk}2 /var/log ext4 errors=remount-ro 0 1" >> /etc/fstab

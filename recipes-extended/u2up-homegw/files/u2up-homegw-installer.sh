@@ -26,11 +26,6 @@ if [ -z "${U2UP_INSTALL_DIALOG_LIB_SOURCED}" ]; then
 	source ${U2UP_INSTALL_DIALOG_LIB}
 fi
 
-default_boot_label="$(get_default_boot_label)"
-if [ -z "${default_boot_label}" ]; then
-	echo "Program terminated (unrecognised current boot setup)!" >&2
-	exit 1
-fi
 U2UP_CURRENT_TARGET_DISK=$(get_current_target_disk)
 U2UP_CURRENT_TARGET_PART=$(get_current_target_part)
 current_root_part_label="$(get_root_label ${U2UP_CURRENT_TARGET_DISK} ${U2UP_CURRENT_TARGET_PART})"
@@ -41,6 +36,12 @@ fi
 current_root_part_label_suffix="$(get_root_label_suffix_from_label ${current_root_part_label})"
 if [ -z "${current_root_part_label_suffix}" ]; then
 	echo "Program terminated (unrecognised current root partition label: disk=\"${U2UP_CURRENT_TARGET_DISK}\", part=\"${U2UP_CURRENT_TARGET_PART}\")!" >&2
+	exit 1
+fi
+
+default_boot_label="$(get_default_boot_label ${U2UP_CURRENT_TARGET_DISK})"
+if [ -z "${default_boot_label}" ]; then
+	echo "Program terminated (unrecognised current boot setup)!" >&2
 	exit 1
 fi
 
@@ -229,7 +230,7 @@ display_target_boot_submenu() {
 	local radiolist=""
 	local tag="start_tag"
 
-	radiolist=$(ls /boot/loader/entries/ | sed 's/\.conf//g' | while read line; do
+	radiolist=$(ls ${U2UP_TMP_BOOT_DIR}/loader/entries/ | sed 's/\.conf//g' | while read line; do
 		tag=$(get_boot_label $line)
 		if [ -n "$default_boot_label" ] && [ "$tag" == "$default_boot_label" ]; then
 			echo -n "${tag}|"$@"|on|"
@@ -891,20 +892,20 @@ extract_bundle_images() {
 	fi
 	if [ $rv -eq 0 ]; then
 		echo "Extracting installation boot images..." >&2
-		mkdir -p /boot/EFI/BOOT
-		mkdir -p /boot/loader/entries
-		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin >&2
+		mkdir -p ${U2UP_TMP_BOOT_DIR}/EFI/BOOT
+		mkdir -p ${U2UP_TMP_BOOT_DIR}/loader/entries
+		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C ${U2UP_TMP_BOOT_DIR} ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin >&2
 		((rv+=$?))
-		mv /boot/${U2UP_KERNEL_IMAGE}-${MACHINE}.bin /boot/bzImage${root_part_suffix} >&2
+		mv ${U2UP_TMP_BOOT_DIR}/${U2UP_KERNEL_IMAGE}-${MACHINE}.bin ${U2UP_TMP_BOOT_DIR}/bzImage${root_part_suffix} >&2
 		((rv+=$?))
-		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot ${U2UP_INITRD_IMAGE}.cpio >&2
+		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C ${U2UP_TMP_BOOT_DIR} ${U2UP_INITRD_IMAGE}.cpio >&2
 		((rv+=$?))
-		mv /boot/${U2UP_INITRD_IMAGE}.cpio /boot/microcode${root_part_suffix}.cpio >&2
+		mv ${U2UP_TMP_BOOT_DIR}/${U2UP_INITRD_IMAGE}.cpio ${U2UP_TMP_BOOT_DIR}/microcode${root_part_suffix}.cpio >&2
 		((rv+=$?))
-		if [ ! -f "/boot/EFI/BOOT/bootx64.efi" ]; then
-			tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot/EFI/BOOT systemd-${U2UP_EFI_FALLBACK_IMAGE} >&2
+		if [ ! -f "${U2UP_TMP_BOOT_DIR}/EFI/BOOT/bootx64.efi" ]; then
+			tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C ${U2UP_TMP_BOOT_DIR}/EFI/BOOT systemd-${U2UP_EFI_FALLBACK_IMAGE} >&2
 			((rv+=$?))
-			mv /boot/EFI/BOOT/systemd-${U2UP_EFI_FALLBACK_IMAGE} /boot/EFI/BOOT/${U2UP_EFI_FALLBACK_IMAGE} >&2
+			mv ${U2UP_TMP_BOOT_DIR}/EFI/BOOT/systemd-${U2UP_EFI_FALLBACK_IMAGE} ${U2UP_TMP_BOOT_DIR}/EFI/BOOT/${U2UP_EFI_FALLBACK_IMAGE} >&2
 			((rv+=$?))
 		fi
 		if [ $rv -ne 0 ]; then
@@ -1388,11 +1389,11 @@ main_loop () {
 			;;
 		13)
 			execute_target_install
-			default_boot_label="$(get_default_boot_label)"
+			default_boot_label="$(get_default_boot_label ${U2UP_CURRENT_TARGET_DISK})"
 			;;
 		14)
 			display_target_boot_submenu
-			default_boot_label="$(get_default_boot_label)"
+			default_boot_label="$(get_default_boot_label ${U2UP_CURRENT_TARGET_DISK})"
 			;;
 		15)
 			display_yesno "Reboot" \

@@ -44,6 +44,7 @@ U2UP_EFI_FALLBACK_IMAGE=bootx64.efi
 
 MACHINE="intel-corei7-64"
 
+U2UP_TMP_BOOT_DIR="/tmp/boot"
 U2UP_INSTALL_ROOT_MNT="/mnt"
 U2UP_TEMP_DIR="/tmp/u2up-temp"
 if [ ! -d "${U2UP_TEMP_DIR}" ]; then
@@ -55,79 +56,6 @@ U2UP_TARGET_DISK_SFDISK_DUMP=${U2UP_TEMP_DIR}/u2up_target_disk-sfdisk_dump
 
 PART_TYPE_EFI="C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
 PART_TYPE_LINUX="0FC63DAF-8483-4772-8E79-3D69D8477DE4"
-
-######################################
-#                                    #
-# U2UP target BOOT helper functions! #
-#                                    #
-######################################
-get_boot_label() {
-	local boot_label=$1
-	local boot_label_conf=
-	if [ -z "${boot_label}" ]; then
-		return
-	fi
-	boot_label_conf="/boot/loader/entries/${boot_label}.conf"
-	if [ ! -f "${boot_label_conf}" ]; then
-		return
-	fi
-	cat ${boot_label_conf} | grep title | sed 's/.*title[ ]*//g'
-}
-
-get_default_boot_label() {
-	local default_boot_conf=""
-	if [ ! -f "/boot/loader/loader.conf" ]; then
-		return
-	fi
-	default_boot_conf="/boot/loader/entries/$(cat /boot/loader/loader.conf | grep "default" | sed 's/default //g').conf"
-	if [ ! -f "${default_boot_conf}" ]; then
-		return
-	fi
-	cat ${default_boot_conf} | grep title | sed 's/.*title[ ]*//g'
-}
-
-set_default_boot() {
-	local rv=0
-	local new_boot_label=$1
-
-	if [ -z "${new_boot_label}" ]; then
-		return 1
-	fi
-	if [ ! -f "/boot/loader/entries/${new_boot_label}.conf" ]; then
-		return 1
-	fi
-	echo "default ${new_boot_label}" > /boot/loader/loader.conf
-	(( rv+=$? ))
-	echo "timeout 5" >> /boot/loader/loader.conf
-	(( rv+=$? ))
-	return $rv
-}
-
-create_new_boot() {
-	local rv=0
-	local root_part_label=$1
-	local root_part_label_suffix=$2
-	local root_part_uuid=$3
-
-	if [ -z "${root_part_label}" ] || [ -z "${root_part_label_suffix}" ] || [ -z "${root_part_uuid}" ]; then
-		return 1
-	fi
-	if [ ! -f "${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE}" ]; then
-		echo "Program terminated (missing: ${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE})!" >&2
-		return 1
-	fi
-	source ${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE}
-	rv=$?
-	echo "title ${root_part_label} (${u2up_ROOTFS_DATETIME})" > /boot/loader/entries/${root_part_label}.conf
-	((rv+=$?))
-	echo "linux /bzImage${root_part_label_suffix}" >> /boot/loader/entries/${root_part_label}.conf
-	((rv+=$?))
-	echo "options label=${root_part_label} root=PARTUUID=${root_part_uuid} rootwait rootfstype=ext4 console=tty0 ttyprintk.tioccons=1" >> /boot/loader/entries/${root_part_label}.conf
-	((rv+=$?))
-	echo "initrd /microcode${root_part_label_suffix}.cpio" >> /boot/loader/entries/${root_part_label}.conf
-	((rv+=$?))
-	return $rv
-}
 
 ######################################
 #                                    #
@@ -226,6 +154,90 @@ get_root_label() {
 #	(( rv+=$? ))
 #	return $rv
 #}
+
+######################################
+#                                    #
+# U2UP target BOOT helper functions! #
+#                                    #
+######################################
+get_boot_label() {
+	local boot_label=$1
+	local boot_label_conf=
+	if [ -z "${boot_label}" ]; then
+		return
+	fi
+	boot_label_conf="${U2UP_TMP_BOOT_DIR}/loader/entries/${boot_label}.conf"
+	if [ ! -f "${boot_label_conf}" ]; then
+		return
+	fi
+	cat ${boot_label_conf} | grep title | sed 's/.*title[ ]*//g'
+}
+
+get_default_boot_label() {
+	local default_boot_conf=""
+	local target_disk=$1
+
+	if [ -z "${target_disk}" ]; then
+		return
+	fi
+	umount ${U2UP_TMP_BOOT_DIR}
+	mkdir -p ${U2UP_TMP_BOOT_DIR}
+	mount -t vfat -o umask=0077 /dev/${target_disk}1 ${U2UP_TMP_BOOT_DIR} >&2
+	if [ $? -ne 0 ]; then
+		return
+	fi
+	if [ ! -f "${U2UP_TMP_BOOT_DIR}/loader/loader.conf" ]; then
+		return
+	fi
+	default_boot_conf="${U2UP_TMP_BOOT_DIR}/loader/entries/$(cat ${U2UP_TMP_BOOT_DIR}/loader/loader.conf | grep "default" | sed 's/default //g').conf"
+	if [ ! -f "${default_boot_conf}" ]; then
+		return
+	fi
+	cat ${default_boot_conf} | grep title | sed 's/.*title[ ]*//g'
+}
+
+set_default_boot() {
+	local rv=0
+	local new_boot_label=$1
+
+	if [ -z "${new_boot_label}" ]; then
+		return 1
+	fi
+	if [ ! -f "${U2UP_TMP_BOOT_DIR}/loader/entries/${new_boot_label}.conf" ]; then
+		return 1
+	fi
+	echo "default ${new_boot_label}" > ${U2UP_TMP_BOOT_DIR}/loader/loader.conf
+	(( rv+=$? ))
+	echo "timeout 5" >> ${U2UP_TMP_BOOT_DIR}/loader/loader.conf
+	(( rv+=$? ))
+	return $rv
+}
+
+create_new_boot() {
+	local rv=0
+	local root_part_label=$1
+	local root_part_label_suffix=$2
+	local root_part_uuid=$3
+
+	if [ -z "${root_part_label}" ] || [ -z "${root_part_label_suffix}" ] || [ -z "${root_part_uuid}" ]; then
+		return 1
+	fi
+	if [ ! -f "${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE}" ]; then
+		echo "Program terminated (missing: ${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE})!" >&2
+		return 1
+	fi
+	source ${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE}
+	rv=$?
+	echo "title ${root_part_label} (${u2up_ROOTFS_DATETIME})" > ${U2UP_TMP_BOOT_DIR}/loader/entries/${root_part_label}.conf
+	((rv+=$?))
+	echo "linux /bzImage${root_part_label_suffix}" >> ${U2UP_TMP_BOOT_DIR}/loader/entries/${root_part_label}.conf
+	((rv+=$?))
+	echo "options label=${root_part_label} root=PARTUUID=${root_part_uuid} rootwait rootfstype=ext4 console=tty0 ttyprintk.tioccons=1" >> ${U2UP_TMP_BOOT_DIR}/loader/entries/${root_part_label}.conf
+	((rv+=$?))
+	echo "initrd /microcode${root_part_label_suffix}.cpio" >> ${U2UP_TMP_BOOT_DIR}/loader/entries/${root_part_label}.conf
+	((rv+=$?))
+	return $rv
+}
 
 ############################################
 #                                          #
@@ -1621,7 +1633,7 @@ update_filesystem_chrooted() {
 	umount ${U2UP_INSTALL_ROOT_MNT}/dev/shm
 	umount ${U2UP_INSTALL_ROOT_MNT}/dev
 	# Mounted explicitly in chrooted env but unmounted here!
-	umount ${U2UP_INSTALL_ROOT_MNT}/boot
+	umount ${U2UP_INSTALL_ROOT_MNT}${U2UP_TMP_BOOT_DIR}
 	umount ${U2UP_INSTALL_ROOT_MNT}/var/volatile/log
 	if [ $rv -ne 0 ]; then
 		echo "${msg}" >&2
@@ -1743,20 +1755,20 @@ extract_remaining_from_images_bundle() {
 	fi
 	if [ $rv -eq 0 ]; then
 		echo "Extracting installation boot images..." >&2
-		mkdir -p /boot/EFI/BOOT
-		mkdir -p /boot/loader/entries
-		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin >&2
+		mkdir -p ${U2UP_TMP_BOOT_DIR}/EFI/BOOT
+		mkdir -p ${U2UP_TMP_BOOT_DIR}/loader/entries
+		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C ${U2UP_TMP_BOOT_DIR} ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin >&2
 		((rv+=$?))
-		mv /boot/${U2UP_KERNEL_IMAGE}-${MACHINE}.bin /boot/bzImage${root_part_suffix} >&2
+		mv ${U2UP_TMP_BOOT_DIR}/${U2UP_KERNEL_IMAGE}-${MACHINE}.bin ${U2UP_TMP_BOOT_DIR}/bzImage${root_part_suffix} >&2
 		((rv+=$?))
-		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot ${U2UP_INITRD_IMAGE}.cpio >&2
+		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C ${U2UP_TMP_BOOT_DIR} ${U2UP_INITRD_IMAGE}.cpio >&2
 		((rv+=$?))
-		mv /boot/${U2UP_INITRD_IMAGE}.cpio /boot/microcode${root_part_suffix}.cpio >&2
+		mv ${U2UP_TMP_BOOT_DIR}/${U2UP_INITRD_IMAGE}.cpio ${U2UP_TMP_BOOT_DIR}/microcode${root_part_suffix}.cpio >&2
 		((rv+=$?))
-		if [ ! -f "/boot/EFI/BOOT/bootx64.efi" ]; then
-			tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C /boot/EFI/BOOT systemd-${U2UP_EFI_FALLBACK_IMAGE} >&2
+		if [ ! -f "${U2UP_TMP_BOOT_DIR}/EFI/BOOT/bootx64.efi" ]; then
+			tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C ${U2UP_TMP_BOOT_DIR}/EFI/BOOT systemd-${U2UP_EFI_FALLBACK_IMAGE} >&2
 			((rv+=$?))
-			mv /boot/EFI/BOOT/systemd-${U2UP_EFI_FALLBACK_IMAGE} /boot/EFI/BOOT/${U2UP_EFI_FALLBACK_IMAGE} >&2
+			mv ${U2UP_TMP_BOOT_DIR}/EFI/BOOT/systemd-${U2UP_EFI_FALLBACK_IMAGE} ${U2UP_TMP_BOOT_DIR}/EFI/BOOT/${U2UP_EFI_FALLBACK_IMAGE} >&2
 			((rv+=$?))
 		fi
 		if [ $rv -ne 0 ]; then
