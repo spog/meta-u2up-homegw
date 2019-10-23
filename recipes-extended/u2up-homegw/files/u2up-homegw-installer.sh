@@ -77,36 +77,6 @@ HEIGHT=0
 WIDTH=0
 #U2UP_BACKTITLE="U2UP-HOMEGW installer - ${current_root_part_label} (${U2UP_CURRENT_ROOTFS_DATETIME}):"
 
-display_result() {
-	dialog \
-		--backtitle "${U2UP_BACKTITLE}" \
-		--title "$1" \
-		--no-collapse \
-		--msgbox "$2" 6 75
-}
-
-display_msg() {
-	dialog \
-		--backtitle "${U2UP_BACKTITLE}" \
-		--title "$1" \
-		--cr-wrap \
-		--no-collapse \
-		--msgbox "$2" $3 75
-}
-
-display_yesno() {
-	dialog \
-		--backtitle "${U2UP_BACKTITLE}" \
-		--title "$1" \
-		--cr-wrap \
-		--no-collapse \
-		--yesno "$2" $3 75
-}
-
-get_item_selection() {
-	echo $@ | sed 's/RENAMED //' | sed 's/: .*/:/'
-}
-
 display_keymap_submenu() {
 	local rv=1
 	local keymap_current=$1
@@ -855,81 +825,6 @@ display_install_repo_config_submenu() {
 	done
 }
 
-extract_bundle_images() {
-	local u2up_TARGET_DISK=$1
-	local u2up_TARGET_PART=$2
-	local root_part_suffix=$3
-	local msg=""
-	local rv=0
-
-	if [ $rv -eq 0 ] && [ -z "$u2up_TARGET_DISK" ]; then
-		msg="Target disk not defined!"
-		rv=1
-	fi
-	if [ $rv -eq 0 ] && [ -z "$u2up_TARGET_PART" ]; then
-		msg="Target disk paritition not defined!"
-		rv=1
-	fi
-	if [ $rv -eq 0 ] && [ -z "$root_part_suffix" ]; then
-		msg="Target root_part_suffix not defined!"
-		rv=1
-	fi
-	if [ $rv -eq 0 ]; then
-		echo "Mounting installation root filesystem..." >&2
-		umount -f $U2UP_INSTALL_ROOT_MNT >&2
-		mkdir -p $U2UP_INSTALL_ROOT_MNT >&2
-		mount /dev/$u2up_TARGET_PART $U2UP_INSTALL_ROOT_MNT >&2
-		rv=$?
-		if [ $rv -ne 0 ]; then
-			msg="Failed to mount installation root filesystem!"
-		fi
-	fi
-	if [ $rv -eq 0 ]; then
-		echo "Extracting installation root filesystem archive..." >&2
-		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} -O ${U2UP_IMAGE_ROOTFS_NAME}-${MACHINE}.tar.gz | tar xz -C $U2UP_INSTALL_ROOT_MNT >&2
-		rv=$?
-		if [ $rv -ne 0 ]; then
-			msg="Failed to extract installation root filesystem archive!"
-		fi
-	fi
-	if [ $rv -eq 0 ]; then
-		echo "Extracting U2UP_IDS..." >&2
-		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --overwrite -C ${U2UP_INSTALL_CONF_DIR} ${U2UP_IDS_CONF_FILE} >&2
-		rv=$?
-		if [ $rv -ne 0 ]; then
-			msg="Failed to extract U2UP_IDS!"
-		fi
-	fi
-	if [ $rv -eq 0 ]; then
-		echo "Extracting installation boot images..." >&2
-		mkdir -p ${U2UP_TMP_BOOT_DIR}/EFI/BOOT
-		mkdir -p ${U2UP_TMP_BOOT_DIR}/loader/entries
-		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C ${U2UP_TMP_BOOT_DIR} ${U2UP_KERNEL_IMAGE}-${MACHINE}.bin >&2
-		((rv+=$?))
-		mv ${U2UP_TMP_BOOT_DIR}/${U2UP_KERNEL_IMAGE}-${MACHINE}.bin ${U2UP_TMP_BOOT_DIR}/bzImage${root_part_suffix} >&2
-		((rv+=$?))
-		tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C ${U2UP_TMP_BOOT_DIR} ${U2UP_INITRD_IMAGE}.cpio >&2
-		((rv+=$?))
-		mv ${U2UP_TMP_BOOT_DIR}/${U2UP_INITRD_IMAGE}.cpio ${U2UP_TMP_BOOT_DIR}/microcode${root_part_suffix}.cpio >&2
-		((rv+=$?))
-		if [ ! -f "${U2UP_TMP_BOOT_DIR}/EFI/BOOT/bootx64.efi" ]; then
-			tar xvf ${U2UP_IMAGES_DIR}/${U2UP_IMAGES_BUNDLE_ARCHIVE} --no-same-owner --no-same-permissions -C ${U2UP_TMP_BOOT_DIR}/EFI/BOOT systemd-${U2UP_EFI_FALLBACK_IMAGE} >&2
-			((rv+=$?))
-			mv ${U2UP_TMP_BOOT_DIR}/EFI/BOOT/systemd-${U2UP_EFI_FALLBACK_IMAGE} ${U2UP_TMP_BOOT_DIR}/EFI/BOOT/${U2UP_EFI_FALLBACK_IMAGE} >&2
-			((rv+=$?))
-		fi
-		if [ $rv -ne 0 ]; then
-			msg="Failed to extract installation boot images!"
-		fi
-	fi
-	if [ $rv -eq 0 ]; then
-		msg="Extracting installation images successfully finished!"
-	fi
-
-	echo "${msg}" >&2
-	return $rv
-}
-
 get_prepare_images_bundle() {
 	local rv=0
 	local msg_warn=
@@ -1062,13 +957,6 @@ proceed_target_install() {
 			msg="Failed extracting root filesystem archive from images bundle!"
 		fi
 	fi
-#	if [ $rv -eq 0 ]; then
-#		extract_bundle_images $u2up_TARGET_DISK $u2up_TARGET_PART $root_part_suffix
-#		rv=$?
-#		if [ $rv -ne 0 ]; then
-#			msg="Failed to extract bundle images!"
-#		fi
-#	fi
 #spog - Currently not needed, because images-bundle is kept on the common "log" partition!
 #	if [ $rv -eq 0 ]; then
 #		echo "Populating the installed system with \"u2up-images-bundle\"..." >&2

@@ -53,36 +53,6 @@ HEIGHT=0
 WIDTH=0
 U2UP_BACKTITLE="U2UP installer setup"
 
-display_result() {
-	dialog \
-		--backtitle "${U2UP_BACKTITLE}" \
-		--title "$1" \
-		--no-collapse \
-		--msgbox "$2" 6 75
-}
-
-display_msg() {
-	dialog \
-		--backtitle "${U2UP_BACKTITLE}" \
-		--title "$1" \
-		--cr-wrap \
-		--no-collapse \
-		--msgbox "$2" $3 75
-}
-
-display_yesno() {
-	dialog \
-		--backtitle "${U2UP_BACKTITLE}" \
-		--title "$1" \
-		--cr-wrap \
-		--no-collapse \
-		--yesno "$2" $3 75
-}
-
-get_item_selection() {
-	echo $@ | sed 's/RENAMED //' | sed 's/: .*/:/'
-}
-
 display_keymap_submenu() {
 	local rv=1
 	local keymap_current=$1
