@@ -17,6 +17,15 @@ fi
 if [ -z "${U2UP_INSTALL_BASH_LIB_SOURCED}" ]; then
 	source ${U2UP_INSTALL_BASH_LIB}
 fi
+exit_handler() {
+	echo "Unmounting \"${U2UP_INSTALL_ROOT_MNT}\"..." >&2
+	umount -f ${U2UP_INSTALL_ROOT_MNT}
+	echo "Unmounting \"${U2UP_TMP_BOOT_DIR}\"..." >&2
+	umount -f ${U2UP_TMP_BOOT_DIR}
+	echo 'Exited: '${0} >&2
+	exec 2>&-
+}
+trap exit_handler EXIT
 U2UP_INSTALL_DIALOG_LIB="/lib/u2up/u2up-install-dialog-lib"
 if [ ! -f "${U2UP_INSTALL_DIALOG_LIB}" ]; then
 	echo "Program terminated (missing: ${U2UP_INSTALL_DIALOG_LIB})!" >&2

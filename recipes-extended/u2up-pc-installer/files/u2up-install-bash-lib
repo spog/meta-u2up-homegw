@@ -180,12 +180,14 @@ get_default_boot_label() {
 	if [ -z "${target_disk}" ]; then
 		return
 	fi
-	umount ${U2UP_TMP_BOOT_DIR}
+	umount -f ${U2UP_TMP_BOOT_DIR} 2> /dev/null
 	mkdir -p ${U2UP_TMP_BOOT_DIR}
 	mount -t vfat -o umask=0077 /dev/${target_disk}1 ${U2UP_TMP_BOOT_DIR} >&2
 	if [ $? -ne 0 ]; then
+		echo "Failed to mount \"${U2UP_TMP_BOOT_DIR}\"!" >&2
 		return
 	fi
+	echo "Successfully mounted \"${U2UP_TMP_BOOT_DIR}\"!" >&2
 	if [ ! -f "${U2UP_TMP_BOOT_DIR}/loader/loader.conf" ]; then
 		return
 	fi
@@ -1521,6 +1523,7 @@ mount_installation_filesystem() {
 	fi
 	if [ $rv -eq 0 ]; then
 		umount -f $U2UP_INSTALL_ROOT_MNT >&2
+		mkdir -p $U2UP_INSTALL_ROOT_MNT >&2
 		mount /dev/$u2up_TARGET_PART $U2UP_INSTALL_ROOT_MNT >&2
 		rv=$?
 		if [ $rv -ne 0 ]; then
