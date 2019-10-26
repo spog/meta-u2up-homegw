@@ -150,6 +150,14 @@ if [ $? -ne 0 ]; then
 fi
 echo "Successfully configured \"external network\" of the installed system!" >&2
 
+echo "Configuring additional services of the installed system..." >&2
+enable_u2up_additional_services
+if [ $? -ne 0 ]; then
+	echo "Failed to configure additional services of the installed system!" >&2
+	exit 1
+fi
+echo "Successfully configured additional services of the installed system!" >&2
+
 echo "Configuring SW packages repository for the installed system..." >&2
 enable_u2up_install_repo_selection
 if [ $? -ne 0 ]; then

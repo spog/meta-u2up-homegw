@@ -46,6 +46,7 @@ MACHINE="intel-corei7-64"
 
 U2UP_TMP_BOOT_DIR="/tmp/boot"
 U2UP_INSTALL_ROOT_MNT="/mnt"
+U2UP_TMP_SRV_DIR="/tmp/srv"
 U2UP_TEMP_DIR="/tmp/u2up-temp"
 if [ ! -d "${U2UP_TEMP_DIR}" ]; then
 	rm -rf $U2UP_TEMP_DIR
@@ -1237,6 +1238,73 @@ EOF
 }
 
 #
+# Enable U2UP additional services.
+# (called only chrooted during installation / upgrade)
+#
+enable_u2up_additional_services() {
+	local msg=""
+	local rv=0
+
+	if [ $rv -eq 0 ]; then
+		echo "Prepare \"apache2\" webserver data path..." >&2
+		mkdir -p /srv/www/
+		rv=$?
+		cp -a ${U2UP_TMP_SRV_DIR}/* /srv/
+		(( rv+=$? ))
+		chown -R daemon.daemon /srv/www
+		(( rv+=$? ))
+		if [ $rv -ne 0 ]; then
+			msg="Failed to prepare \"apache2\" webserver data path!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Prepare configuration for \"apache2\" webserver..." >&2
+		cat >> /etc/apache2/httpd.conf << EOF
+
+DocumentRoot "//srv/www/html"
+<Directory "//srv/www/html">
+    Options Indexes FollowSymLinks
+    AllowOverride None
+    Require all granted
+</Directory>
+
+# Security Hardening Begin:
+TraceEnable off
+ServerSignature Off
+ServerTokens Prod
+#SSLProtocol -ALL +TLSv1.2
+#SSLCipherSuite ALL:!aNULL:!ADH:!eNULL:!LOW:!EXP:RC4+RSA:+HIGH:+MEDIUM
+<Directory />
+Options None
+Order allow,deny
+Allow from all
+</Directory>
+# Security Hardening End!
+
+EOF
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to write apache2/httpd.conf!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Enabling \"apache2\" webserver..." >&2
+		systemctl enable apache2
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to enable \"apache2\" webserver!"
+		else
+			echo "Successfully enabled \"apache2\" webserver!" >&2
+		fi
+	fi
+	if [ $rv -ne 0 ]; then
+		echo "${msg}" >&2
+	fi
+
+	return $rv
+}
+
+#
 # Enable U2UP configured SW packages repository.
 # (called from "upgrade" installer and chrooted during installation / upgrade)
 #
@@ -1615,6 +1683,15 @@ update_filesystem_chrooted() {
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
+		umount ${U2UP_INSTALL_ROOT_MNT}/${U2UP_TMP_SRV_DIR} >&2
+		mkdir -p ${U2UP_INSTALL_ROOT_MNT}/${U2UP_TMP_SRV_DIR} >&2
+		mount -o bind /srv ${U2UP_INSTALL_ROOT_MNT}/${U2UP_TMP_SRV_DIR}
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to mount-bind /srv!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
 		if [ -x "${HOME}/u2up-update-chrooted.sh" ]; then
 			echo "WARNING! Using local (chrooted) script!" >&2
 			cp -pf ${U2UP_INSTALL_ROOT_MNT}/usr/bin/u2up-update-chrooted.sh ${U2UP_INSTALL_ROOT_MNT}/usr/bin/u2up-update-chrooted.sh_orig
@@ -1631,6 +1708,7 @@ update_filesystem_chrooted() {
 			msg="Failed executing (chrooted) script!"
 		fi
 	fi
+	umount ${U2UP_INSTALL_ROOT_MNT}${U2UP_TMP_SRV_DIR}
 	umount ${U2UP_INSTALL_ROOT_MNT}/sys
 	umount ${U2UP_INSTALL_ROOT_MNT}/proc
 	umount ${U2UP_INSTALL_ROOT_MNT}/dev/shm
