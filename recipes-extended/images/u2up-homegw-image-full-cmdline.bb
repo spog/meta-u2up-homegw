@@ -32,6 +32,11 @@ IMAGE_INSTALL = "\
     less \
     dnsmasq \
     apache2 \
+    dovecot \
+    postfix \
+    fetchmail \
+    mailx \
+    gdb \
     "
 
 #SYSTEMD_DEFAULT_TARGET = "u2up-pre-config.target"
