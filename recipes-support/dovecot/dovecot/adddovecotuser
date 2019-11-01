@@ -1,0 +1,90 @@
+#!/bin/sh
+VMAIL_HOME="/srv/vmail"
+POSTFIX_VMAPS="/srv/etc/postfix/vmaps"
+DOVECOT_USERS="/srv/etc/dovecot/users"
+DOVECOT_PASSWD="/srv/etc/dovecot/passwd"
+if [ ! $# = 1 ]; then
+	echo "Usage: $0 username@domain"
+	exit 1
+else
+	user=`echo "$1" | cut -f1 -d "@"`
+	domain=`echo "$1" | cut -s -f2 -d "@"`
+	if [ -x $domain ]; then
+		echo "No domain given\nUsage: $0 username@domain"
+		exit 2
+	fi
+	echo "Adding user $user@$domain to ${DOVECOT_USERS}"
+	if [ -d "${DOVECOT_USERS}" ]; then
+		rm -rf ${DOVECOT_USERS}
+	fi
+	touch ${DOVECOT_USERS}
+	grep -v "$user@$domain:" ${DOVECOT_USERS} > ${DOVECOT_USERS}_tmp
+	echo "$user@$domain::5000:5000::${VMAIL_HOME}/$domain/$user/:/bin/false::" >> ${DOVECOT_USERS}_tmp
+	mv ${DOVECOT_USERS}_tmp ${DOVECOT_USERS}
+
+	# Create the needed Maildir directories
+	echo "Creating user directory ${VMAIL_HOME}/$domain/$user"
+	# maildirmake.dovecot does only chown on user directory, we'll create domain directory instead
+	# if [ ! -x /home/vmail/$domain ]; then
+	# 	mkdir /home/vmail/$domain
+	# 	chown 5000:5000 /home/vmail/$domain
+	# 	chmod 700 /home/vmail/$domain
+	# fi
+	if [ ! -d "${VMAIL_HOME}/$domain" ]; then
+		rm -rf ${VMAIL_HOME}/$domain
+		mkdir ${VMAIL_HOME}/$domain
+	fi
+	chown vmail:vmail ${VMAIL_HOME}/$domain
+	chmod 700 ${VMAIL_HOME}/$domain
+	# /usr/bin/maildirmake.dovecot /home/vmail/$domain/$user 5000:5000
+	if [ ! -d "${VMAIL_HOME}/$domain/$user" ]; then
+		rm -rf ${VMAIL_HOME}/$domain/$user
+		mkdir ${VMAIL_HOME}/$domain/$user
+	fi
+	# Also make folders for Drafts, Sent, Junk and Trash
+	# /usr/bin/maildirmake.dovecot /home/vmail/$domain/$user/.Drafts 5000:5000
+	if [ ! -d "${VMAIL_HOME}/$domain/$user/.Drafts" ]; then
+		rm -rf ${VMAIL_HOME}/$domain/$user/.Drafts
+		mkdir ${VMAIL_HOME}/$domain/$user/.Drafts
+	fi
+	# /usr/bin/maildirmake.dovecot /home/vmail/$domain/$user/.Sent 5000:5000
+	if [ ! -d "${VMAIL_HOME}/$domain/$user/.Sent" ]; then
+		rm -rf ${VMAIL_HOME}/$domain/$user/.Sent
+		mkdir ${VMAIL_HOME}/$domain/$user/.Sent
+	fi
+	# /usr/bin/maildirmake.dovecot /home/vmail/$domain/$user/.Junk 5000:5000
+	if [ ! -d "${VMAIL_HOME}/$domain/$user/.Junk" ]; then
+		rm -rf ${VMAIL_HOME}/$domain/$user/.Junk
+		mkdir ${VMAIL_HOME}/$domain/$user/.Junk
+	fi
+	# /usr/bin/maildirmake.dovecot /home/vmail/$domain/$user/.Trash 5000:5000
+	if [ ! -d "${VMAIL_HOME}/$domain/$user/.Trash" ]; then
+		rm -rf ${VMAIL_HOME}/$domain/$user/.Trash
+		mkdir ${VMAIL_HOME}/$domain/$user/.Trash
+	fi
+	chown -R vmail:vmail ${VMAIL_HOME}/$domain/$user
+
+	# To add user to Postfix virtual map file and relode Postfix
+	echo "Adding user to ${POSTFIX_VMAPS}"
+	touch ${POSTFIX_VMAPS}
+	grep  -v "$domain/$user/" ${POSTFIX_VMAPS} > ${POSTFIX_VMAPS}_tmp
+	echo $1  $domain/$user/ >> ${POSTFIX_VMAPS}_tmp
+	mv ${POSTFIX_VMAPS}_tmp ${POSTFIX_VMAPS}
+	postmap ${POSTFIX_VMAPS}
+	postfix reload
+fi
+
+echo -e "\nCreate a password for the new email user"
+passwd=$(doveadm pw -u $user)
+echo "Adding password for $user@$domain to ${DOVECOT_PASSWD}"
+if [ -d "${DOVECOT_PASSWD}" ]; then
+	rm -rf ${DOVECOT_PASSWD}
+fi
+touch ${DOVECOT_PASSWD}
+chmod 640 ${DOVECOT_PASSWD}
+grep  -v "$user@$domain:" ${DOVECOT_PASSWD} > ${DOVECOT_PASSWD}_tmp
+echo  "$user@$domain:$passwd" >> ${DOVECOT_PASSWD}_tmp
+mv ${DOVECOT_PASSWD}_tmp ${DOVECOT_PASSWD}
+chmod 640 ${DOVECOT_PASSWD}
+
+exit 0

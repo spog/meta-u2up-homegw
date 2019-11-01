@@ -1,0 +1,52 @@
+#!/bin/bash
+#
+# deldovecotuser - for deleting virtual dovecot users
+#
+VMAIL_HOME="/srv/vmail"
+POSTFIX_VMAPS="/srv/etc/postfix/vmaps"
+DOVECOT_USERS="/srv/etc/dovecot/users"
+DOVECOT_PASSWD="/srv/etc/dovecot/passwd"
+
+if [ ! $# = 1 ]; then
+	echo -e "Usage: $0 username@domain"
+	exit 1
+else
+	user=$(echo "$1" | cut -f1 -d "@")
+	domain=$(echo "$1" | cut -s -f2 -d "@")
+	if [ -x $domain ]; then
+		echo -e "No domain given\nUsage: $0 username@domain: "
+		exit 2
+	fi
+fi
+
+read -n 1 -p "Delete user $user@$domain from dovecot? [Y/N]? "
+echo
+case $REPLY in
+y | Y)
+	new_users=$(grep -v $user@$domain ${DOVECOT_USERS})
+	new_passwd=$(grep -v $user@$domain ${DOVECOT_PASSWD})
+	new_vmaps=$(grep -v $user@$domain ${POSTFIX_VMAPS})
+	echo "Deleting $user@$domain from ${DOVECOT_USERS}"
+	echo "$new_users" > ${DOVECOT_USERS}
+	echo "Deleting $user@$domain from ${DOVECOT_PASSWD}"
+	echo "$new_passwd" > ${DOVECOT_PASSWD}
+	echo "Deleting $user@$domain from ${POSTFIX_VMAPS}"
+	echo "$new_vmaps" > ${POSTFIX_VMAPS}
+	postmap ${POSTFIX_VMAPS}
+	postfix reload
+	read -n1 -p "Delete all files in ${VMAIL_HOME}/$domain/$user? [Y/N]? " DELETE
+	echo
+	case $DELETE in
+	y | Y)
+		echo "Deleting files in ${VMAIL_HOME}/$domain/$user"
+		rm -fr ${VMAIL_HOME}/$domain/$user
+		;;
+	* )
+		echo "Not deleting files in ${VMAIL_HOME}/$domain/$user"
+		;;
+	esac
+	;;
+* )
+	echo "Aborting..."
+	;;
+esac
