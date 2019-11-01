@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # deldovecotuser - for deleting virtual dovecot users
 #
