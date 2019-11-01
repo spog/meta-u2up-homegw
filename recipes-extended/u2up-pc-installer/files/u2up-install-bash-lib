@@ -1247,9 +1247,9 @@ enable_u2up_additional_services() {
 
 	if [ $rv -eq 0 ]; then
 		echo "Prepare \"apache2\" webserver data path..." >&2
-		mkdir -p /srv/www/
+		mkdir -p /srv/www
 		rv=$?
-		cp -a ${U2UP_TMP_SRV_DIR}/* /srv/
+		cp -a ${U2UP_TMP_SRV_DIR}/www/* /srv/www/
 		(( rv+=$? ))
 		chown -R daemon.daemon /srv/www
 		(( rv+=$? ))
@@ -1295,6 +1295,154 @@ EOF
 			msg="Failed to enable \"apache2\" webserver!"
 		else
 			echo "Successfully enabled \"apache2\" webserver!" >&2
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Prepare \"postfix\" mail-server virtual mailbox owner (user \"vmail\")..." >&2
+		groupmod -g 5000 vmail
+		(( rv+=$? ))
+		usermod -d /srv/vmail -g 5000 -u 5000 -s /bin/bash vmail
+		(( rv+=$? ))
+		chown -R vmail.vmail /var/spool/vmail
+		(( rv+=$? ))
+		if [ $rv -ne 0 ]; then
+			msg="Failed to prepare \"postfix\" mail-server virtual mailbox owner!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Prepare \"postfix\" mail-server virtual mailbox path..." >&2
+		mkdir -p /srv/vmail
+		rv=$?
+		cp -a ${U2UP_TMP_SRV_DIR}/vmail/* /srv/vmail/
+		(( rv+=$? ))
+		chown -R vmail.vmail /srv/vmail
+		(( rv+=$? ))
+		if [ $rv -ne 0 ]; then
+			msg="Failed to prepare \"postfix\" mail-server virtual mailbox path!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Prepare specific \"postfix\" mail-server virtual configuration..." >&2
+		mkdir -p /srv/etc/postfix
+		rv=$?
+		cp -a ${U2UP_TMP_SRV_DIR}/etc/postfix/* /srv/etc/postfix/
+		(( rv+=$? ))
+		touch /srv/etc/postfix/vhosts
+		(( rv+=$? ))
+		touch /srv/etc/postfix/vmaps
+		(( rv+=$? ))
+		postmap /srv/etc/postfix/vmaps
+		(( rv+=$? ))
+		if [ $rv -ne 0 ]; then
+			msg="Failed to prepare specific \"postfix\" mail-server virtual configuration!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Prepare common configuration for \"postfix\" mail-server..." >&2
+		cp -p /etc/postfix/main.cf /etc/postfix/main.cf_orig
+		(( rv+=$? ))
+		cat > /etc/postfix/main.cf << EOF
+compatibility_level=2
+smtputf8_enable = no
+
+biff = no
+
+# appending .domain is the MUA's job.
+append_dot_mydomain = no
+
+# Uncomment the next line to generate "delayed mail" warnings
+#delay_warning_time = 4h
+
+myhostname = localhost
+alias_maps = hash:/etc/aliases
+alias_database = hash:/etc/aliases
+myorigin = \$myhostname
+mynetworks = 127.0.0.1/8
+inet_interfaces = 127.0.0.1
+
+mailbox_size_limit = 0
+virtual_mailbox_domains = /srv/etc/postfix/vhosts
+virtual_mailbox_maps = hash:/srv/etc/postfix/vmaps
+virtual_mailbox_base = /srv/vmail
+virtual_minimum_uid = 1000
+virtual_uid_maps = static:5000
+virtual_gid_maps = static:5000
+recipient_delimiter = +
+EOF
+		(( rv+=$? ))
+		if [ $rv -ne 0 ]; then
+			msg="Failed to write common postfix/main.cf!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Enabling \"postfix\" mail-server..." >&2
+		systemctl enable postfix
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to enable \"postfix\" mail-server!"
+		else
+			echo "Successfully enabled \"postfix\" mail-server!" >&2
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Prepare specific \"dovecot\" imap-server configuration..." >&2
+		mkdir -p /srv/etc/dovecot
+		rv=$?
+		cp -a ${U2UP_TMP_SRV_DIR}/etc/dovecot/* /srv/etc/dovecot/
+		(( rv+=$? ))
+		if [ $rv -ne 0 ]; then
+			msg="Failed to prepare specific \"dovecot\" imap-server configuration!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Prepare common configuration for \"dovecot\" imap-server..." >&2
+		cat > /etc/dovecot/dovecot.conf << EOF
+auth_mechanisms = plain cram-md5
+auth_verbose = yes
+base_dir = /var/run/dovecot/
+info_log_path = /var/log/dovecot.info
+log_path = /var/log/dovecot
+log_timestamp = "%Y-%m-%d %H:%M:%S "
+mail_location = maildir:/srv/vmail/%d/%n
+passdb {
+  args = /srv/etc/dovecot/passwd
+  driver = passwd-file
+}
+protocols = imap
+service auth {
+  executable = /usr/libexec/dovecot/auth
+  user = root
+}
+service imap-login {
+  chroot = login
+  executable = /usr/libexec/dovecot/imap-login
+  user = dovecot
+}
+service imap {
+  executable = /usr/libexec/dovecot/imap
+}
+ssl = no
+userdb {
+  args = /srv/etc/dovecot/users
+  driver = passwd-file
+}
+valid_chroot_dirs = /var/spool/vmail
+EOF
+		(( rv+=$? ))
+		if [ $rv -ne 0 ]; then
+			msg="Failed to write common dovecot/dovecot.conf!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Enabling \"dovecot\" imap-server..." >&2
+		systemctl enable dovecot.socket
+		(( rv+=$? ))
+		systemctl enable dovecot.service
+		(( rv+=$? ))
+		if [ $rv -ne 0 ]; then
+			msg="Failed to enable \"dovecot\" imap-server!"
+		else
+			echo "Successfully enabled \"dovecot\" imap-server!" >&2
 		fi
 	fi
 	if [ $rv -ne 0 ]; then
