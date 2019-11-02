@@ -1327,6 +1327,8 @@ EOF
 		rv=$?
 		cp -a ${U2UP_TMP_SRV_DIR}/etc/postfix/* /srv/etc/postfix/
 		(( rv+=$? ))
+		touch /srv/etc/postfix/virtual
+		(( rv+=$? ))
 		touch /srv/etc/postfix/vhosts
 		(( rv+=$? ))
 		touch /srv/etc/postfix/vmaps
@@ -1354,6 +1356,7 @@ append_dot_mydomain = no
 #delay_warning_time = 4h
 
 myhostname = localhost
+mydestination = \$myhostname, localhost.\$mydomain
 alias_maps = hash:/etc/aliases
 alias_database = hash:/etc/aliases
 myorigin = \$myhostname
@@ -1361,12 +1364,15 @@ mynetworks = 127.0.0.1/8
 inet_interfaces = 127.0.0.1
 
 mailbox_size_limit = 0
+virtual_alias_domains = localhost
+virtual_alias_maps = hash:/srv/etc/postfix/virtual
 virtual_mailbox_domains = /srv/etc/postfix/vhosts
 virtual_mailbox_maps = hash:/srv/etc/postfix/vmaps
 virtual_mailbox_base = /srv/vmail
 virtual_minimum_uid = 1000
 virtual_uid_maps = static:5000
 virtual_gid_maps = static:5000
+virtual_transport = lmtp:unix:private/dovecot-lmtp
 recipient_delimiter = +
 EOF
 		(( rv+=$? ))
@@ -1408,7 +1414,7 @@ passdb {
   args = /srv/etc/dovecot/passwd
   driver = passwd-file
 }
-protocols = imap
+protocols = imap lmtp
 service auth {
   executable = /usr/libexec/dovecot/auth
   user = root
@@ -1425,6 +1431,13 @@ ssl = no
 userdb {
   args = /srv/etc/dovecot/users
   driver = passwd-file
+}
+service lmtp {
+ unix_listener /var/spool/postfix/private/dovecot-lmtp {
+   group = postfix
+   mode = 0600
+   user = postfix
+  }
 }
 valid_chroot_dirs = /var/spool/vmail
 EOF
