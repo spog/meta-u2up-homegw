@@ -1360,8 +1360,10 @@ mydestination = \$myhostname, localhost.\$mydomain
 alias_maps = hash:/etc/aliases
 alias_database = hash:/etc/aliases
 myorigin = \$myhostname
-mynetworks = 127.0.0.1/8
-inet_interfaces = 127.0.0.1
+#mynetworks = 127.0.0.1/8
+mynetworks = 127.0.0.0/8
+#inet_interfaces = 127.0.0.1
+inet_interfaces = all
 
 mailbox_size_limit = 0
 virtual_alias_domains = localhost
@@ -1374,6 +1376,13 @@ virtual_uid_maps = static:5000
 virtual_gid_maps = static:5000
 virtual_transport = lmtp:unix:private/dovecot-lmtp
 recipient_delimiter = +
+
+smtpd_sasl_auth_enable = yes
+smtpd_sasl_security_options = noplaintext,noanonymous
+smtpd_recipient_restrictions = permit_sasl_authenticated,permit_mynetworks,reject_unauth_destination
+smtpd_sasl_type = dovecot
+smtpd_sasl_path = private/auth
+
 EOF
 		(( rv+=$? ))
 		if [ $rv -ne 0 ]; then
@@ -1418,6 +1427,12 @@ protocols = imap lmtp
 service auth {
   executable = /usr/libexec/dovecot/auth
   user = root
+  # Postfix smtp-auth
+  unix_listener /var/spool/postfix/private/auth {
+    mode = 0666
+    user = postfix
+    group = postfix
+  }
 }
 service imap-login {
   chroot = login
