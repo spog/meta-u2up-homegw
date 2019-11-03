@@ -1355,7 +1355,8 @@ append_dot_mydomain = no
 # Uncomment the next line to generate "delayed mail" warnings
 #delay_warning_time = 4h
 
-myhostname = localhost
+#myhostname = localhost
+myhostname = mail.u2up.net
 mydestination = \$myhostname, localhost.\$mydomain
 alias_maps = hash:/etc/aliases
 alias_database = hash:/etc/aliases
