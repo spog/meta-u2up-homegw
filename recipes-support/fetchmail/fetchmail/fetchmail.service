@@ -1,0 +1,13 @@
+[Unit]
+Description=Mail Retrieval Agent
+After=network.target
+Requires=postfix.service
+
+[Service]
+User=vmail
+ExecStart=/usr/bin/fetchmail -d 70 -f /srv/etc/fetchmailrc
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target
+

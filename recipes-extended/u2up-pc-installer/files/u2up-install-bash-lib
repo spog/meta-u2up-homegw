@@ -1246,7 +1246,7 @@ enable_u2up_additional_services() {
 	local rv=0
 
 	if [ $rv -eq 0 ]; then
-		echo "Prepare \"apache2\" webserver data path..." >&2
+		echo "Preparing \"apache2\" webserver data path..." >&2
 		mkdir -p /srv/www
 		rv=$?
 		cp -a ${U2UP_TMP_SRV_DIR}/www/* /srv/www/
@@ -1258,7 +1258,7 @@ enable_u2up_additional_services() {
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		echo "Prepare configuration for \"apache2\" webserver..." >&2
+		echo "Preparing configuration for \"apache2\" webserver..." >&2
 		cat >> /etc/apache2/httpd.conf << EOF
 
 DocumentRoot "//srv/www/html"
@@ -1298,7 +1298,7 @@ EOF
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		echo "Prepare \"postfix\" mail-server virtual mailbox owner (user \"vmail\")..." >&2
+		echo "Preparing \"postfix\" mail-server virtual mailbox owner (user \"vmail\")..." >&2
 		groupmod -g 5000 vmail
 		(( rv+=$? ))
 		usermod -d /srv/vmail -g 5000 -u 5000 -s /bin/bash vmail
@@ -1310,7 +1310,7 @@ EOF
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		echo "Prepare \"postfix\" mail-server virtual mailbox path..." >&2
+		echo "Preparing \"postfix\" mail-server virtual mailbox path..." >&2
 		mkdir -p /srv/vmail
 		rv=$?
 		cp -a ${U2UP_TMP_SRV_DIR}/vmail/* /srv/vmail/
@@ -1322,7 +1322,7 @@ EOF
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		echo "Prepare specific \"postfix\" mail-server virtual configuration..." >&2
+		echo "Preparing specific \"postfix\" mail-server virtual configuration..." >&2
 		mkdir -p /srv/etc/postfix
 		rv=$?
 		cp -a ${U2UP_TMP_SRV_DIR}/etc/postfix/* /srv/etc/postfix/
@@ -1340,7 +1340,7 @@ EOF
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		echo "Prepare common configuration for \"postfix\" mail-server..." >&2
+		echo "Preparing common configuration for \"postfix\" mail-server..." >&2
 		cp -p /etc/postfix/main.cf /etc/postfix/main.cf_orig
 		(( rv+=$? ))
 		cat > /etc/postfix/main.cf << EOF
@@ -1471,7 +1471,7 @@ EOF
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		echo "Prepare specific \"dovecot\" imap-server configuration..." >&2
+		echo "Preparing specific \"dovecot\" imap-server configuration..." >&2
 		mkdir -p /srv/etc/dovecot
 		rv=$?
 		cp -a ${U2UP_TMP_SRV_DIR}/etc/dovecot/* /srv/etc/dovecot/
@@ -1481,7 +1481,7 @@ EOF
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		echo "Prepare common configuration for \"dovecot\" imap-server..." >&2
+		echo "Preparing common configuration for \"dovecot\" imap-server..." >&2
 		cat > /etc/dovecot/dovecot.conf << EOF
 auth_mechanisms = plain cram-md5
 auth_verbose = yes
@@ -1542,6 +1542,37 @@ EOF
 			msg="Failed to enable \"dovecot\" imap-server!"
 		else
 			echo "Successfully enabled \"dovecot\" imap-server!" >&2
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Preparing specific \"fetchmail\" service configuration..." >&2
+		mkdir -p /srv/etc
+		rv=$?
+		if [ $rv -eq 0 ]; then
+			if [ -f "${U2UP_TMP_SRV_DIR}/etc/fetchmailrc" ]; then
+				cp -p ${U2UP_TMP_SRV_DIR}/etc/fetchmailrc /srv/etc/
+				rv=$?
+			else
+				cp -p /etc/fetchmailrc /srv/etc/
+				rv=$?
+			fi
+		fi
+		chmod 600 /srv/etc/fetchmailrc
+		(( rv+=$? ))
+		chown vmail.vmail /srv/etc/fetchmailrc
+		(( rv+=$? ))
+		if [ $rv -ne 0 ]; then
+			msg="Failed to prepare specific \"fetchmail\" service configuration!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Enabling \"fetchmail\" service..." >&2
+		systemctl enable fetchmail.service
+		(( rv+=$? ))
+		if [ $rv -ne 0 ]; then
+			msg="Failed to enable \"fetchmail\" service!"
+		else
+			echo "Successfully enabled \"fetchmail\" service!" >&2
 		fi
 	fi
 	if [ $rv -ne 0 ]; then
