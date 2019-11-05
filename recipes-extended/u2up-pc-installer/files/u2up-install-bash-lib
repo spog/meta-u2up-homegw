@@ -1380,9 +1380,79 @@ recipient_delimiter = +
 
 smtpd_sasl_auth_enable = yes
 smtpd_sasl_security_options = noplaintext,noanonymous
-smtpd_recipient_restrictions = permit_sasl_authenticated,permit_mynetworks,reject_unauth_destination
 smtpd_sasl_type = dovecot
 smtpd_sasl_path = private/auth
+
+#
+# Anti-spam configuration hardening!
+# 7 tips according to:
+# https://www.linuxbabe.com/mail-server/block-email-spam-postfix
+#
+
+#
+#1: Reject Email if SMTP Client Has no PTR record
+#3: Reject Email if SMTP Client Hostname doesn’t have valid A Record
+#4: Reject Email If MAIL FROM Domain Has Neither MX Record Nor A Record
+#
+smtpd_sender_restrictions =
+   permit_mynetworks
+   permit_sasl_authenticated
+   reject_unknown_sender_domain
+   reject_unknown_reverse_client_hostname
+   reject_unknown_client_hostname
+
+#
+#2: Enable HELO/EHLO Hostname Restrictions in Postfix
+#
+smtpd_helo_required = yes
+smtpd_helo_restrictions =
+    permit_mynetworks
+    permit_sasl_authenticated
+    check_helo_access hash:/srv/etc/postfix/helo_access
+    reject_invalid_helo_hostname
+    reject_non_fqdn_helo_hostname
+    reject_unknown_helo_hostname
+
+#
+#5: Enable Greylisting in Postfix
+#
+# As required by the SMTP protocol, any legitimate SMTP client must be able to
+# re-send email if delivery fails. (By default, Postfix is configured to resend
+# failed emails many times before it informs the sender that the message could
+# not be delivered.) Many spammers usually just send once and would not retry.
+#
+# Postgrey is a greylisting policy server for Postfix.
+#
+
+#
+#6: Using Public Anti-Spam Blacklists
+#
+# Using the freee service of spamhaus.org.
+#
+#orig:smtpd_recipient_restrictions = permit_sasl_authenticated,permit_mynetworks,reject_unauth_destination
+smtpd_recipient_restrictions =
+   permit_mynetworks,
+   permit_sasl_authenticated,
+   reject_unauth_destination,
+   check_client_access hash:/srv/etc/postfix/rbl_override,
+   reject_rhsbl_helo dbl.spamhaus.org,
+   reject_rhsbl_reverse_client dbl.spamhaus.org,
+   reject_rhsbl_sender dbl.spamhaus.org,
+   reject_rbl_client zen.spamhaus.org
+
+#
+#7: Set Up OpenDMARC to Reject Emails That Fail DMARC Check
+#
+# DMARC (Domain-based Message Authentication, Reporting and Conformance) is an
+# Internet standard that allows domain owners to prevent their domain names from
+# being used by email spoofers. Please check the following guide.
+#
+#    Set Up OpenDMARC with Postfix on Ubuntu to Block Email Spoofing/Spam
+#
+# Don’t be an Open Relay
+#
+
+smtpd_relay_restrictions = permit_mynetworks permit_sasl_authenticated defer_unauth_destination
 
 EOF
 		(( rv+=$? ))
