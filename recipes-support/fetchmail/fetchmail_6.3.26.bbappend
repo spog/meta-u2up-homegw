@@ -6,7 +6,12 @@ SRC_URI += "\
 "
 
 do_install_append() {
-        install -m0644 ${WORKDIR}/fetchmail.service ${D}/lib/systemd/system
+	install -d ${D}/${systemd_unitdir}/system
+	install -d ${D}/etc
+        install -m0644 ${WORKDIR}/fetchmail.service ${D}/${systemd_unitdir}/system
         install -m0600 ${WORKDIR}/fetchmailrc ${D}/etc
 }
+
+FILES_${PN} += "${systemd_unitdir}"
+FILES_${PN} += "/etc"
 
