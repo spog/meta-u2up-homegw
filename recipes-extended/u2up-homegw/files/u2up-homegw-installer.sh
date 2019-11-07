@@ -1104,7 +1104,7 @@ main_loop () {
 			--clear \
 			--cancel-label "Exit" \
 			--default-item $current_tag \
-			--menu "Please select:" $HEIGHT $WIDTH 15 \
+			--menu "Please select:" $HEIGHT $WIDTH 16 \
 			"1" "Keyboard mapping [${u2up_KEYMAP}]" \
 			"2" "Target disk [${u2up_TARGET_DISK}]" \
 			"3" "Disk partitions \
@@ -1118,12 +1118,13 @@ main_loop () {
 			"7" "Network internal interface [${u2up_NET_INTERNAL_IFNAME} - ${net_internal_mac}]" \
 			"8" "Static network external configuration [${u2up_NET_EXTERNAL_ADDR_MASK}]" \
 			"9" "Static network internal configuration [${u2up_NET_INTERNAL_ADDR_MASK}]" \
-			"10" "Installation packages repo [${u2up_INSTALL_REPO_BASE_URL}]" \
-			"11" "Installation partition [${u2up_TARGET_PART} - ${root_part_label}]" \
-			"12" "Get new images bundle" \
-			"13" "Install (${U2UP_IMAGE_ROOTFS_DATETIME})" \
-			"14" "Default boot [${default_boot_label}]" \
-			"15" "Reboot" \
+			"10" "Local Domain [${u2up_LOCAL_DOMAIN}]" \
+			"11" "Installation packages repo [${u2up_INSTALL_REPO_BASE_URL}]" \
+			"12" "Installation partition [${u2up_TARGET_PART} - ${root_part_label}]" \
+			"13" "Get new images bundle" \
+			"14" "Install (${U2UP_IMAGE_ROOTFS_DATETIME})" \
+			"15" "Default boot [${default_boot_label}]" \
+			"16" "Reboot" \
 		2>&1 >&3)
 		exit_status=$?
 		exec 3>&-
@@ -1257,6 +1258,12 @@ main_loop () {
 			fi
 			;;
 		10)
+			local local_domain_old=$u2up_LOCAL_DOMAIN
+			display_local_domain_submenu \
+				$U2UP_INSTALL_CONF_DIR \
+				$u2up_LOCAL_DOMAIN
+			;;
+		11)
 			local install_repo_base_url_old=$u2up_INSTALL_REPO_BASE_URL
 			display_install_repo_config_submenu \
 				$u2up_INSTALL_REPO_BASE_URL
@@ -1270,12 +1277,12 @@ main_loop () {
 				enable_u2up_install_repo_selection
 			fi
 			;;
-		11)
+		12)
 			display_target_part_submenu \
 				$u2up_TARGET_DISK \
 				$u2up_TARGET_PART
 			;;
-		12)
+		13)
 			check_install_repo_config_set
 			if [ $? -eq 0 ]; then
 				get_prepare_images_bundle
@@ -1285,15 +1292,15 @@ main_loop () {
 			fi
 
 			;;
-		13)
+		14)
 			execute_target_install
 			default_boot_label="$(get_default_boot_label ${U2UP_CURRENT_TARGET_DISK})"
 			;;
-		14)
+		15)
 			display_target_boot_submenu
 			default_boot_label="$(get_default_boot_label ${U2UP_CURRENT_TARGET_DISK})"
 			;;
-		15)
+		16)
 			display_yesno "Reboot" \
 				"You are about to reboot the system!\n\nDo you want to continue?" 7
 			if [ $? -eq 0 ]; then

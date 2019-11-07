@@ -25,6 +25,7 @@ U2UP_TARGET_ADMIN_CONF_FILE="40-admin-conf"
 U2UP_NETWORK_EXTERNAL_CONF_FILE="50-network_external-conf"
 U2UP_NETWORK_INTERNAL_CONF_FILE="60-network_internal-conf"
 U2UP_INSTALL_REPO_CONF_FILE="70-install_repo-conf"
+U2UP_DOMAIN_CONF_FILE="80-domain-conf"
 
 # Use common partition to download images bundle:
 U2UP_IMAGES_DIR="/var/log/u2up-images"
@@ -651,6 +652,38 @@ save_u2up_install_repo_selection() {
 	return $rv
 }
 
+save_u2up_local_domain_selection() {
+	local rv=1
+	local var_local_domain_set=""
+	local var_local_domain_current=""
+	local conf_dir=${1}
+	shift
+	local value="$(echo $@ | sed 's/[^:]*://' | sed 's/ *//')"
+	local name="$(echo $@ | sed 's/RENAMED //' | sed 's/:.*//')"
+
+	if [ ! -d "${conf_dir}" ]; then
+		return 1
+	fi
+	if [ -z "${value}" ] || [ "x${name}" = "x${value}" ]; then
+		return 0
+	fi
+	case $name in
+	"Local Domain")
+		var_local_domain_set=u2up_LOCAL_DOMAIN
+		var_local_domain_current=local_domain_current
+		;;
+	*)
+		return 1;
+	esac
+
+	cat ${conf_dir}/${U2UP_DOMAIN_CONF_FILE} | grep -v "${var_local_domain_set}=" > ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}_tmp
+	echo "local ${var_local_domain_set}=$value" >> ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}_tmp
+	mv ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}_tmp ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}
+	rv=$?
+	echo "${var_local_domain_current}=${value}"
+	return $rv
+}
+
 #############################################
 #                                           #
 # ENABLE functions for U2UP configurations! #
@@ -691,6 +724,7 @@ enable_u2up_keymap_selection() {
 enable_u2up_target_hostname_selection() {
 	local rv=1
 	local conf_dir=${1:-${U2UP_CONF_DIR}}
+	local net_internal_addr=""
 
 	if [ ! -f "${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}" ]; then
 		return 1
@@ -706,6 +740,18 @@ enable_u2up_target_hostname_selection() {
 #			set_target_done_for ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE} ${new_target_done}
 #			rv=$?
 #		fi
+	fi
+	if [ $rv -eq 0 ] && [ -f "${conf_dir}/${U2UP_DOMAIN_CONF_FILE}" ]; then
+		source ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}
+		if [ -f "${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}" ]; then
+			source ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}
+			if [ -n "$u2up_LOCAL_DOMAIN" ] && [ -n "$u2up_NET_INTERNAL_ADDR_MASK" ]; then
+				net_internal_addr=$(echo -n "${u2up_NET_INTERNAL_ADDR_MASK}" | sed 's|\/.*||g')
+				cat /etc/hosts | grep -v "${u2up_TARGET_HOSTNAME}" > /etc/hosts_tmp
+				echo -e "\n${net_internal_addr}\t${u2up_TARGET_HOSTNAME}.${u2up_LOCAL_DOMAIN}\t${u2up_TARGET_HOSTNAME}" >> /etc/hosts_tmp
+				mv /etc/hosts_tmp /etc/hosts
+			fi
+		fi
 	fi
 	return $rv
 }
@@ -1046,6 +1092,7 @@ EOF
 #
 enable_u2up_net_internal_config_selection() {
 	local net_internal_addr=""
+	local net_local_domain=""
 	local net_uuid=""
 	local conf_dir=${1:-${U2UP_CONF_DIR}}
 	local msg=""
@@ -1054,6 +1101,15 @@ enable_u2up_net_internal_config_selection() {
 	if [ $rv -eq 0 ] && [ ! -f "${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}" ]; then
 		msg="Missing static internal network configuration!"
 		rv=1
+	fi
+	if [ $rv -eq 0 ]; then
+		if [ -f "${conf_dir}/${U2UP_DOMAIN_CONF_FILE}" ]; then
+			source ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}
+			net_local_domain=${u2up_LOCAL_DOMAIN}
+		else
+			net_local_domain="localdomain"
+		fi
+
 	fi
 	if [ $rv -eq 0 ]; then
 		source ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}
@@ -1205,9 +1261,11 @@ domain-needed
 bogus-priv
 no-resolv
 
-domain=local.net
 expand-hosts
-local=/local.net/
+domain=${net_local_domain}
+local=/${net_local_domain}/
+
+addn-hosts=/srv/etc/dnsmasq-addn-hosts
 
 listen-address=127.0.0.1
 listen-address=${net_internal_addr}
@@ -1678,6 +1736,10 @@ prepare_u2up_upgrade_configuration() {
 	fi
 	if [ ! -e "${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
 		cp -pf ${U2UP_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE} ${conf_dir}/
+		(( rv+=$? ))
+	fi
+	if [ ! -e "${conf_dir}/${U2UP_DOMAIN_CONF_FILE}" ]; then
+		cp -pf ${U2UP_CONF_DIR}/${U2UP_DOMAIN_CONF_FILE} ${conf_dir}/
 		(( rv+=$? ))
 	fi
 	return $rv
