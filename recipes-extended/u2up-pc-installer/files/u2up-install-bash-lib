@@ -1314,6 +1314,48 @@ enable_u2up_additional_services() {
 	local rv=0
 
 	if [ $rv -eq 0 ]; then
+		echo "Preparing specific \"dnsmasq\" service configuration..." >&2
+		mkdir -p /srv/etc/dnsmasq.d
+		rv=$?
+		if [ $rv -eq 0 ]; then
+			if [ -f "${U2UP_TMP_SRV_DIR}/etc/dnsmasq_servers" ]; then
+				cp -p ${U2UP_TMP_SRV_DIR}/etc/dnsmasq_servers /srv/etc/
+				(( rv+=$? ))
+			else
+				touch /srv/etc/dnsmasq_servers
+				(( rv+=$? ))
+			fi
+			if [ -f "${U2UP_TMP_SRV_DIR}/etc/dnsmasq_addn-hosts" ]; then
+				cp -p ${U2UP_TMP_SRV_DIR}/etc/dnsmasq_addn-hosts /srv/etc/
+				(( rv+=$? ))
+			else
+				touch /srv/etc/dnsmasq_addn-hosts
+				(( rv+=$? ))
+			fi
+			if [ -f "${U2UP_TMP_SRV_DIR}/etc/dnsmasq_dhcp-hosts" ]; then
+				cp -p ${U2UP_TMP_SRV_DIR}/etc/dnsmasq_dhcp-hosts /srv/etc/
+				(( rv+=$? ))
+			else
+				touch /srv/etc/dnsmasq_dhcp-hosts
+				(( rv+=$? ))
+			fi
+			if [ -f "${U2UP_TMP_SRV_DIR}/etc/dnsmasq_dhcp-opts" ]; then
+				cp -p ${U2UP_TMP_SRV_DIR}/etc/dnsmasq_dhcp-opts /srv/etc/
+				(( rv+=$? ))
+			else
+				touch /srv/etc/dnsmasq_dhcp-opts
+				(( rv+=$? ))
+			fi
+			if [ -f "${U2UP_TMP_SRV_DIR}/etc/dnsmasq.d/30-dhcp-ranges.conf" ]; then
+				cp -p ${U2UP_TMP_SRV_DIR}/etc/dnsmasq.d/30-dhcp-ranges.conf /srv/etc/dnsmasq.d/
+				(( rv+=$? ))
+			fi
+		fi
+		if [ $rv -ne 0 ]; then
+			msg="Failed to prepare specific \"dnsmasq\" service configuration!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
 		echo "Preparing \"apache2\" webserver data path..." >&2
 		mkdir -p /srv/www
 		rv=$?
