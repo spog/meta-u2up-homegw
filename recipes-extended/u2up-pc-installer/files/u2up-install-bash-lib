@@ -1265,11 +1265,12 @@ expand-hosts
 domain=${net_local_domain}
 local=/${net_local_domain}/
 
-addn-hosts=/srv/etc/dnsmasq-addn-hosts
-
 listen-address=127.0.0.1
 listen-address=${net_internal_addr}
 bind-interfaces
+
+servers-file=/srv/etc/dnsmasq_servers
+addn-hosts=/srv/etc/dnsmasq_addn-hosts
 
 conf-dir=/etc/dnsmasq.d,*.conf
 EOF
