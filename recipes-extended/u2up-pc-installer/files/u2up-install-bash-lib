@@ -1059,8 +1059,15 @@ EOF
 #			fi
 #		fi
 		if [ $rv -eq 0 ]; then
-			cat > /etc/dnsmasq.d/10-servers.conf << EOF
-#/etc/dnsmasq.d/10-servers.conf
+			mkdir -p /srv/etc/dnsmasq.d
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				msg="Failed to make directory /srv/etc/dnsmasq.d!"
+			fi
+		fi
+		if [ $rv -eq 0 ]; then
+			cat > /srv/etc/dnsmasq.d/10-servers.conf << EOF
+#/srv/etc/dnsmasq.d/10-servers.conf
 server=${u2up_NET_EXTERNAL_DNS1}
 EOF
 			rv=$?
@@ -1271,8 +1278,10 @@ bind-interfaces
 
 servers-file=/srv/etc/dnsmasq_servers
 addn-hosts=/srv/etc/dnsmasq_addn-hosts
+dhcp-hostsfile=/srv/etc/dnsmasq_dhcp-hosts
+dhcp-optsfile=/srv/etc/dnsmasq_dhcp-opts
 
-conf-dir=/etc/dnsmasq.d,*.conf
+conf-dir=/srv/etc/dnsmasq.d,*.conf
 EOF
 			rv=$?
 			if [ $rv -ne 0 ]; then
