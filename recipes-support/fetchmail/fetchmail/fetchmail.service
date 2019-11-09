@@ -5,7 +5,7 @@ Requires=postfix.service
 
 [Service]
 User=vmail
-ExecStart=/usr/bin/fetchmail -d 70 -f /srv/etc/fetchmailrc
+ExecStart=/usr/bin/fetchmail -f /srv/etc/fetchmailrc
 RestartSec=1
 
 [Install]
