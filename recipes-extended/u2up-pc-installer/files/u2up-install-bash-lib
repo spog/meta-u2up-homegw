@@ -893,6 +893,7 @@ permissions=
 zone=external
 
 [ethernet]
+cloned-mac-address=${u2up_NET_EXTERNAL_MAC_ADDR}
 mac-address-blacklist=
 
 [ipv4]
@@ -1149,6 +1150,7 @@ permissions=
 zone=trusted
 
 [ethernet]
+cloned-mac-address=${u2up_NET_INTERNAL_MAC_ADDR}
 mac-address-blacklist=
 
 [ipv4]
