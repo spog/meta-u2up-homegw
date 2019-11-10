@@ -1154,7 +1154,7 @@ cloned-mac-address=${u2up_NET_INTERNAL_MAC_ADDR}
 mac-address-blacklist=
 
 [ipv4]
-address1=${u2up_NET_INTERNAL_ADDR_MASK},${u2up_NET_INTERNAL_GW}
+address1=${u2up_NET_INTERNAL_ADDR_MASK}
 dns=127.0.0.1;
 dns-search=
 method=manual
@@ -1193,7 +1193,6 @@ EOF
 		cat >> /etc/systemd/network/10-internal-static.network << EOF
 [Network]
 Address=${u2up_NET_INTERNAL_ADDR_MASK}
-Gateway=${u2up_NET_INTERNAL_GW}
 DNS=127.0.0.1
 EOF
 		rv=$?
