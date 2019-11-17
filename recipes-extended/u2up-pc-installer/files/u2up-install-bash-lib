@@ -832,46 +832,6 @@ enable_u2up_mac_naming_eth_policy() {
 }
 
 #
-#TO BE DELETED!
-#
-#OLD_enable_u2up_net_config_selection() {
-#	local rv=0
-#	local u2up_NET_INTERNAL_IFNAME=""
-#	local u2up_NET_INTERNAL_ADDR_MASK=""
-#	local u2up_NET_INTERNAL_GW=""
-#	local u2up_NET_DNS=""
-#	local u2up_NET_DOMAINS=""
-#	local TARGET_DONE=0
-#	local new_target_done=${1:-0}
-#	local conf_dir=${1:-${U2UP_CONF_DIR}}
-#
-#	if [ ! -f "${conf_dir}/${U2UP_NETWORK_CONF_FILE}" ]; then
-#		return 1
-#	fi
-#	source ${conf_dir}/${U2UP_NETWORK_CONF_FILE}
-#	if [ $TARGET_DONE -eq 0 ]; then
-#		if [ -n "${u2up_NET_INTERNAL_IFNAME}" ] && [ -n "${u2up_NET_INTERNAL_ADDR_MASK}" ] && [ -n "${u2up_NET_INTERNAL_GW}" ]; then
-#			nmcli con add type ethernet con-name internal ifname ${u2up_NET_INTERNAL_IFNAME} ip4 ${u2up_NET_INTERNAL_ADDR_MASK} gw4 ${u2up_NET_INTERNAL_GW}
-#			rv=$?
-#			if [ $rv -eq 0 ]; then
-#				nmcli con mod internal connection.zone trusted
-#				rv=$?
-#			fi
-#		fi
-#		if [ $rv -eq 0 ] && [ -n "${u2up_NET_DNS}" ]; then
-#			nmcli con mod internal ipv4.dns "${u2up_NET_DNS}"
-#			nmcli con mod internal ipv4.dns "127.0.0.1"
-#			rv=$?
-#		fi
-#		if [ $rv -eq 0 ]; then
-#			set_target_done_for ${conf_dir}/${U2UP_NETWORK_CONF_FILE} ${new_target_done}
-#			rv=$?
-#		fi
-#	fi
-#	return $rv
-#}
-
-#
 # Enable U2UP configured external networking.
 # (called from installers and chrooted during installation / upgrade)
 #
@@ -932,7 +892,6 @@ addr-gen-mode=stable-privacy
 dns-search=
 method=auto
 EOF
-#method=ignore
 		rv=$?
 		if [ $rv -ne 0 ]; then
 			msg="Failed to write \"NetworkManager\" static external network configuration!"
@@ -945,37 +904,6 @@ EOF
 			msg="Failed to set file permissions for \"NetworkManager\" static external network configuration!"
 		fi
 	fi
-	if [ $rv -eq 0 ]; then
-		cat > /etc/systemd/network/10-external-static.network << EOF
-[Match]
-Name=${u2up_NET_EXTERNAL_IFNAME}
-
-EOF
-		if [ -n "${u2up_NET_EXTERNAL_MAC_ADDR}" ]; then
-			cat >> /etc/systemd/network/10-external-static.network << EOF
-[Link]
-MACAddress=${u2up_NET_EXTERNAL_MAC_ADDR}
-
-EOF
-		fi
-		cat >> /etc/systemd/network/10-external-static.network << EOF
-[Network]
-Address=${u2up_NET_EXTERNAL_ADDR_MASK}
-Gateway=${u2up_NET_EXTERNAL_GW}
-DNS=127.0.0.1
-EOF
-		rv=$?
-		if [ $rv -ne 0 ]; then
-			msg="Failed to write \"systemd\" static external network configuration!"
-		fi
-	fi
-#	if [ $rv -eq 0 ]; then
-#		chmod 600 /etc/systemd/network/10-external-static.network
-#		rv=$?
-#		if [ $rv -ne 0 ]; then
-#			msg="Failed to set file permissions for \"systemd\" static external network configuration!"
-#		fi
-#	fi
 	if [ $rv -eq 0 ]; then
 		echo "Disabling \"systemd-networked\" of the installed system (in-favour of NetworkManager)..." >&2
 		if [ -f "/etc/systemd/system/network-online.target.wants/systemd-networkd-wait-online.service" ]; then
@@ -1038,52 +966,6 @@ EOF
 				fi
 			fi
 		fi
-#		if [ $rv -eq 0 ]; then
-#			cat > /etc/resolv.conf << EOF
-#nameserver 127.0.0.1
-#EOF
-#			rv=$?
-#			if [ $rv -ne 0 ]; then
-#				msg="Failed to write static resolv.conf!"
-#			fi
-#		fi
-#		if [ $rv -eq 0 ]; then
-#			if [ -f "/etc/dnsmasq.conf_orig" ]; then
-#				rm -f /etc/dnsmasq.conf
-#				rv=$?
-#				if [ $rv -ne 0 ]; then
-#					msg="Failed to remove old dnsmasq.conf!"
-#				fi
-#			else
-#				mv /etc/dnsmasq.conf /etc/dnsmasq.conf_orig
-#				rv=$?
-#				if [ $rv -ne 0 ]; then
-#					msg="Failed to move original dnsmasq.conf!"
-#				fi
-#			fi
-#		fi
-#		if [ $rv -eq 0 ]; then
-#			cat > /etc/dnsmasq.conf << EOF
-##/etc/dnsmasq.conf
-#domain-needed
-#bogus-priv
-#no-resolv
-#
-#domain=local.net
-#expand-hosts
-#local=/local.net/
-#
-#listen-address=127.0.0.1
-#listen-address=${net_internal_addr}
-#bind-interfaces
-#
-#conf-dir=/etc/dnsmasq.d,*.conf
-#EOF
-#			rv=$?
-#			if [ $rv -ne 0 ]; then
-#				msg="Failed to write common dnsmasq.conf!"
-#			fi
-#		fi
 		if [ $rv -eq 0 ]; then
 			mkdir -p /srv/etc/dnsmasq.d
 			rv=$?
@@ -1118,7 +1000,6 @@ EOF
 	return $rv
 }
 
-#OLD: execute_net_reconfiguration() {
 #
 # Enable U2UP configured internal networking.
 # (called from installers and chrooted during installation / upgrade)
@@ -1202,76 +1083,6 @@ EOF
 			msg="Failed to set file permissions for \"NetworkManager\" static internal network configuration!"
 		fi
 	fi
-	if [ $rv -eq 0 ]; then
-		cat > /etc/systemd/network/10-internal-static.network << EOF
-[Match]
-Name=${u2up_NET_INTERNAL_IFNAME}
-
-EOF
-		if [ -n "${u2up_NET_INTERNAL_MAC_ADDR}" ]; then
-			cat >> /etc/systemd/network/10-internal-static.network << EOF
-[Link]
-MACAddress=${u2up_NET_INTERNAL_MAC_ADDR}
-
-EOF
-		fi
-		cat >> /etc/systemd/network/10-internal-static.network << EOF
-[Network]
-Address=${u2up_NET_INTERNAL_ADDR_MASK}
-DNS=127.0.0.1
-EOF
-		rv=$?
-		if [ $rv -ne 0 ]; then
-			msg="Failed to write \"systemd\" static internal network configuration!"
-		fi
-	fi
-#	if [ $rv -eq 0 ]; then
-#		chmod 600 /etc/systemd/network/10-internal-static.network
-#		rv=$?
-#		if [ $rv -ne 0 ]; then
-#			msg="Failed to set file permissions for \"systemd\" static internal network configuration!"
-#		fi
-#	fi
-#	if [ $rv -eq 0 ]; then
-#		echo "Disabling \"systemd-resolved\" of the installed system (in-favour of dnsmasq)..." >&2
-#		if [ -f "/etc/systemd/system/multi-user.target.wants/systemd-resolved.service" ]; then
-#			rm -f /etc/systemd/system/multi-user.target.wants/systemd-resolved.service
-#			rv=$?
-#			if [ $rv -ne 0 ]; then
-#				msg="Failed to remove systemd-resolved.service!"
-#			fi
-#		fi
-#		if [ $rv -eq 0 ] && [ -f "/etc/systemd/system/dbus-org.freedesktop.resolve1.service" ]; then
-#			rm -f /etc/systemd/system/dbus-org.freedesktop.resolve1.service
-#			rv=$?
-#			if [ $rv -ne 0 ]; then
-#				msg="Failed to remove dbus-org.freedesktop.resolve1.service!"
-#			fi
-#		fi
-#		if [ $rv -eq 0 ]; then
-#			if [ -f "/etc/resolv.conf_orig" ]; then
-#				rm -f /etc/resolv.conf
-#				rv=$?
-#				if [ $rv -ne 0 ]; then
-#					msg="Failed to remove old resolv.conf!"
-#				fi
-#			else
-#				mv /etc/resolv.conf /etc/resolv.conf_orig
-#				rv=$?
-#				if [ $rv -ne 0 ]; then
-#					msg="Failed to move original resolv.conf!"
-#				fi
-#			fi
-#		fi
-#		if [ $rv -eq 0 ]; then
-#			cat > /etc/resolv.conf << EOF
-#nameserver 127.0.0.1
-#EOF
-#			rv=$?
-#			if [ $rv -ne 0 ]; then
-#				msg="Failed to write static resolv.conf!"
-#			fi
-#		fi
 		if [ $rv -eq 0 ]; then
 			if [ -f "/etc/dnsmasq.conf_orig" ]; then
 				rm -f /etc/dnsmasq.conf
@@ -1314,17 +1125,6 @@ EOF
 				msg="Failed to write common dnsmasq.conf!"
 			fi
 		fi
-#		if [ $rv -eq 0 ]; then
-#			cat > /etc/dnsmasq.d/10-servers.conf << EOF
-##/etc/dnsmasq.d/10-servers.conf
-#server=${u2up_NET_INTERNAL_GW}
-#EOF
-#			rv=$?
-#			if [ $rv -ne 0 ]; then
-#				msg="Failed to write dnsmasq.d/10-servers.conf!"
-#			fi
-#		fi
-#	fi
 	if [ $rv -ne 0 ]; then
 		echo "${msg}" >&2
 	fi
