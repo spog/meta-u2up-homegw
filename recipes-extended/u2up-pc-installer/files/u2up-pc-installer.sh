@@ -9,7 +9,12 @@ echo "Started: ${0}" >&2
 #set -x
 
 U2UP_CONF_DIR_PREFIX=""
-U2UP_INSTALL_BASH_LIB="/lib/u2up/u2up-install-bash-lib"
+U2UP_INSTALL_BASH_LIB="./u2up-install-bash-lib-local"
+if [ ! -f "${U2UP_INSTALL_BASH_LIB}" ]; then
+	U2UP_INSTALL_BASH_LIB="/lib/u2up/u2up-install-bash-lib"
+else
+	echo "WARNING! Using (bash-lib-local) script!" >&2
+fi
 if [ ! -f "${U2UP_INSTALL_BASH_LIB}" ]; then
 	echo "Program terminated (missing: ${U2UP_INSTALL_BASH_LIB})!" >&2
 	exit 1
@@ -26,7 +31,12 @@ exit_handler() {
 	exec 2>&-
 }
 trap exit_handler EXIT
-U2UP_INSTALL_DIALOG_LIB="/lib/u2up/u2up-install-dialog-lib"
+U2UP_INSTALL_DIALOG_LIB="./u2up-install-dialog-lib-local"
+if [ ! -f "${U2UP_INSTALL_DIALOG_LIB}" ]; then
+	U2UP_INSTALL_DIALOG_LIB="/lib/u2up/u2up-install-dialog-lib"
+else
+	echo "WARNING! Using (dialog-lib-local) script!" >&2
+fi
 if [ ! -f "${U2UP_INSTALL_DIALOG_LIB}" ]; then
 	echo "Program terminated (missing: ${U2UP_INSTALL_DIALOG_LIB})!" >&2
 	exit 1

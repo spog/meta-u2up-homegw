@@ -2090,10 +2090,10 @@ update_filesystem_chrooted() {
 			cp -pf ${U2UP_INSTALL_ROOT_MNT}/usr/bin/u2up-update-chrooted.sh ${U2UP_INSTALL_ROOT_MNT}/usr/bin/u2up-update-chrooted.sh_orig
 			cp -f ${HOME}/u2up-update-chrooted.sh ${U2UP_INSTALL_ROOT_MNT}/usr/bin/u2up-update-chrooted.sh
 		fi
-		if [ -f "${HOME}/u2up-install-bash-lib" ]; then
-			echo "WARNING! Using local (bash-lib) script!" >&2
+		if [ -f "${HOME}/u2up-install-bash-lib-chrooted" ]; then
+			echo "WARNING! Using local (bash-lib-chrooted) script!" >&2
 			cp -pf ${U2UP_INSTALL_ROOT_MNT}/lib/u2up/u2up-install-bash-lib ${U2UP_INSTALL_ROOT_MNT}/lib/u2up/u2up-install-bash-lib_orig
-			cp -f ${HOME}/u2up-install-bash-lib ${U2UP_INSTALL_ROOT_MNT}/lib/u2up/u2up-install-bash-lib
+			cp -f ${HOME}/u2up-install-bash-lib-chrooted ${U2UP_INSTALL_ROOT_MNT}/lib/u2up/u2up-install-bash-lib
 		fi
 		chroot ${U2UP_INSTALL_ROOT_MNT} /usr/bin/u2up-update-chrooted.sh
 		rv=$?
