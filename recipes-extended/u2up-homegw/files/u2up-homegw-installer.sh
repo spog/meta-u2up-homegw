@@ -9,7 +9,7 @@ echo >&2
 echo "Started: ${0}" >&2
 #set -x
 
-U2UP_INSTALL_BASH_LIB="./u2up-install-bash-lib-local"
+U2UP_INSTALL_BASH_LIB="${HOME}/u2up-install-bash-lib-local"
 if [ ! -f "${U2UP_INSTALL_BASH_LIB}" ]; then
 	U2UP_INSTALL_BASH_LIB="/lib/u2up/u2up-install-bash-lib"
 else
@@ -31,7 +31,7 @@ exit_handler() {
 	exec 2>&-
 }
 trap exit_handler EXIT
-U2UP_INSTALL_DIALOG_LIB="./u2up-install-dialog-lib-local"
+U2UP_INSTALL_DIALOG_LIB="${HOME}/u2up-install-dialog-lib-local"
 if [ ! -f "${U2UP_INSTALL_DIALOG_LIB}" ]; then
 	U2UP_INSTALL_DIALOG_LIB="/lib/u2up/u2up-install-dialog-lib"
 else
