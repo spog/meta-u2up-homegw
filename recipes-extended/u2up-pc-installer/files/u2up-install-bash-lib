@@ -807,6 +807,31 @@ enable_u2up_target_admin_selection() {
 }
 
 #
+# Enable U2UP mac naming policy for eth devices.
+# (called only chrooted during installation / upgrade)
+#
+enable_u2up_mac_naming_eth_policy() {
+	local rv=0
+	local naming_policy_file="/lib/systemd/network/99-default.link"
+
+	if [ ! -f "${naming_policy_file}" ]; then
+		msg="Missing default network naming policy configuration file!"
+		rv=1
+	fi
+	if [ $rv -eq 0 ]; then
+		sed -i 's/NamePolicy=.*/NamePolicy=kernel mac database onboard slot path/' ${naming_policy_file}
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to change default naming policy file!"
+		fi
+	fi
+	if [ $rv -ne 0 ]; then
+		echo "${msg}" >&2
+	fi
+	return $rv
+}
+
+#
 #TO BE DELETED!
 #
 #OLD_enable_u2up_net_config_selection() {

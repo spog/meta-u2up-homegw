@@ -134,6 +134,14 @@ echo "Successfully configured \"fstab\" for common logging partition!" >&2
 #fi
 #echo "Successfully set \"done\" configuring target disk and partitions!" >&2
 
+echo "Configuring \"mac\" naming policy for eth devices of the installed system..." >&2
+enable_u2up_mac_naming_eth_policy
+if [ $? -ne 0 ]; then
+	echo "Failed to configure \"mac\" naming policy for eth devices of the installed system!" >&2
+	exit 1
+fi
+echo "Successfully configured \"mac\" naming policy for eth devices of the installed system!" >&2
+
 echo "Configuring \"internal network\" of the installed system..." >&2
 enable_u2up_net_internal_config_selection
 if [ $? -ne 0 ]; then
