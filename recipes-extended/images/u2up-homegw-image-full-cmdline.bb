@@ -37,6 +37,8 @@ IMAGE_INSTALL = "\
     fetchmail \
     mailx \
     gdb \
+    bind-utils \
+    curl \
     "
 
 #SYSTEMD_DEFAULT_TARGET = "u2up-pre-config.target"
