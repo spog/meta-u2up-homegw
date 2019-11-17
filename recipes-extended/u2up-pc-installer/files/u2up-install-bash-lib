@@ -157,6 +157,59 @@ get_root_label() {
 #	return $rv
 #}
 
+update_hosts_file() {
+	local rv=0
+	local hosts_file="/etc/hosts"
+	local conf_dir=${1:-${U2UP_CONF_DIR}}
+	local names=""
+	local net_addr=""
+
+	if [ -f "${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}" ]; then
+		source ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}
+	fi
+	if [ -z "$u2up_TARGET_HOSTNAME" ]; then
+		rv=1
+	fi
+	if [ $rv -eq 0 ]; then
+		names="${u2up_TARGET_HOSTNAME}"
+		cat $hosts_file | grep -v "${u2up_TARGET_HOSTNAME}" > ${hosts_file}_tmp
+		rv=$?
+		echo >> ${hosts_file}_tmp
+		(( rv+=$? ))
+	fi
+	if [ $rv -eq 0 ] && [ -f "${conf_dir}/${U2UP_DOMAIN_CONF_FILE}" ]; then
+		source ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}
+		if [ -n "u2up_LOCAL_DOMAIN" ]; then
+			names="${u2up_TARGET_HOSTNAME}.${u2up_LOCAL_DOMAIN}\t${u2up_TARGET_HOSTNAME}"
+		fi
+	fi
+	if [ $rv -eq 0 ] && [ -f "${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}" ]; then
+		source ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}
+		if [ -n "$u2up_NET_EXTERNAL_ADDR_MASK" ]; then
+			net_addr=$(echo -n "${u2up_NET_EXTERNAL_ADDR_MASK}" | sed 's|\/.*||g')
+			if [ -n "${net_addr}" ]; then
+				echo -e "${net_addr}\t${names}" >> ${hosts_file}_tmp
+				rv=$?
+			fi
+		fi
+	fi
+	if [ $rv -eq 0 ] && [ -f "${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}" ]; then
+		source ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}
+		if [ -n "$u2up_NET_INTERNAL_ADDR_MASK" ]; then
+			net_addr=$(echo -n "${u2up_NET_INTERNAL_ADDR_MASK}" | sed 's|\/.*||g')
+			if [ -n "${net_addr}" ]; then
+				echo -e "${net_addr}\t${names}" >> ${hosts_file}_tmp
+				rv=$?
+			fi
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		mv ${hosts_file}_tmp $hosts_file
+		rv=$?
+	fi
+	return $rv
+}
+
 ######################################
 #                                    #
 # U2UP target BOOT helper functions! #
@@ -741,17 +794,9 @@ enable_u2up_target_hostname_selection() {
 #			rv=$?
 #		fi
 	fi
-	if [ $rv -eq 0 ] && [ -f "${conf_dir}/${U2UP_DOMAIN_CONF_FILE}" ]; then
-		source ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}
-		if [ -f "${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}" ]; then
-			source ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}
-			if [ -n "$u2up_LOCAL_DOMAIN" ] && [ -n "$u2up_NET_INTERNAL_ADDR_MASK" ]; then
-				net_internal_addr=$(echo -n "${u2up_NET_INTERNAL_ADDR_MASK}" | sed 's|\/.*||g')
-				cat /etc/hosts | grep -v "${u2up_TARGET_HOSTNAME}" > /etc/hosts_tmp
-				echo -e "\n${net_internal_addr}\t${u2up_TARGET_HOSTNAME}.${u2up_LOCAL_DOMAIN}\t${u2up_TARGET_HOSTNAME}" >> /etc/hosts_tmp
-				mv /etc/hosts_tmp /etc/hosts
-			fi
-		fi
+	if [ $rv -eq 0 ]; then
+		update_hosts_file $conf_dir
+		rv=$?
 	fi
 	return $rv
 }
