@@ -75,12 +75,6 @@ if [ ! -d "${U2UP_INSTALL_CONF_DIR}" ]; then
 	fi
 fi
 
-#if [ ! -f "${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE}" ]; then
-#	echo "Program terminated (missing: ${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE})!" >&2
-#	exit 1
-#fi
-#source ${U2UP_CONF_DIR}/${U2UP_IDS_CONF_FILE}
-#U2UP_CURRENT_ROOTFS_DATETIME=${u2up_ROOTFS_DATETIME}
 DIALOG_CANCEL=1
 DIALOG_ESC=255
 HEIGHT=0
@@ -1072,29 +1066,11 @@ main_loop () {
 				source $conf_file
 			done
 		fi
-#		if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_KEYMAP_CONF_FILE}" ]; then
-#			source ${U2UP_INSTALL_CONF_DIR}/${U2UP_KEYMAP_CONF_FILE}
-#		fi
-#		if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
-#			source ${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_DISK_CONF_FILE}
-#		fi
 		root_part_label="$(get_root_label ${u2up_TARGET_DISK} ${u2up_TARGET_PART})"
 		if [ -z "${root_part_label}" ]; then
 			display_result "ERROR" "Program interrupted (unknown root part label)!"
 			exit 1
 		fi
-#		if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE}" ]; then
-#			source ${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_HOSTNAME_CONF_FILE}
-#		fi
-#		if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_ADMIN_CONF_FILE}" ]; then
-#			source ${U2UP_INSTALL_CONF_DIR}/${U2UP_TARGET_ADMIN_CONF_FILE}
-#		fi
-#		if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}" ]; then
-#			source ${U2UP_INSTALL_CONF_DIR}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}
-#		fi
-#		if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_NETWORK_INTERNAL_CONF_FILE}" ]; then
-#			source ${U2UP_INSTALL_CONF_DIR}/${U2UP_NETWORK_INTERNAL_CONF_FILE}
-#		fi
 		net_external_mac=""
 		if [ -n "${u2up_NET_EXTERNAL_IFNAME}" ]; then
 			net_external_mac="$(ip link show dev $u2up_NET_EXTERNAL_IFNAME | grep "link\/ether" | sed 's/ *link\/ether *//' | sed 's/ .*//')"
@@ -1107,9 +1083,6 @@ main_loop () {
 		if [ -n "${u2up_NET_HOME_IFNAME}" ]; then
 			net_home_mac="$(ip link show dev $u2up_NET_HOME_IFNAME | grep "link\/ether" | sed 's/ *link\/ether *//' | sed 's/ .*//')"
 		fi
-#		if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
-#			source ${U2UP_INSTALL_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}
-#		fi
 
 		exec 3>&1
 		selection=$(dialog \
@@ -1118,7 +1091,7 @@ main_loop () {
 			--clear \
 			--cancel-label "Exit" \
 			--default-item $current_tag \
-			--menu "Please select:" $HEIGHT $WIDTH 16 \
+			--menu "Please select:" $HEIGHT $WIDTH 17 \
 			"1" "Keyboard mapping [${u2up_KEYMAP}]" \
 			"2" "Target disk [${u2up_TARGET_DISK}]" \
 			"3" "Disk partitions \
@@ -1168,27 +1141,8 @@ main_loop () {
 				$u2up_KEYMAP
 			;;
 		2)
-#			display_target_disk_submenu \
-#				$u2up_TARGET_DISK
 			;;
 		3)
-#			local target_boot_partsz_old=$u2up_TARGET_BOOT_PARTSZ
-#			local target_log_partsz_old=$u2up_TARGET_LOG_PARTSZ
-#			local target_rootA_partsz_old=$u2up_TARGET_ROOTA_PARTSZ
-#			local target_rootB_partsz_old=$u2up_TARGET_ROOTB_PARTSZ
-#			display_target_partsizes_submenu \
-#				$u2up_TARGET_BOOT_PARTSZ \
-#				$u2up_TARGET_LOG_PARTSZ \
-#				$u2up_TARGET_ROOTA_PARTSZ \
-#				$u2up_TARGET_ROOTB_PARTSZ
-#			rv=$?
-#			if [ $rv -ne 0 ]; then
-#				# Restore old partition sizes
-#				save_u2up_target_partsize_selection ${U2UP_INSTALL_CONF_DIR} "boot :${target_boot_partsz_old}"
-#				save_u2up_target_partsize_selection ${U2UP_INSTALL_CONF_DIR} "log :${target_log_partsz_old}"
-#				save_u2up_target_partsize_selection ${U2UP_INSTALL_CONF_DIR} "rootA :${target_rootA_partsz_old}"
-#				save_u2up_target_partsize_selection ${U2UP_INSTALL_CONF_DIR} "rootB :${target_rootB_partsz_old}"
-#			fi
 			;;
 		4)
 			local target_hostname_old=$u2up_TARGET_HOSTNAME
