@@ -1103,6 +1103,10 @@ main_loop () {
 		if [ -n "${u2up_NET_INTERNAL_IFNAME}" ]; then
 			net_internal_mac="$(ip link show dev $u2up_NET_INTERNAL_IFNAME | grep "link\/ether" | sed 's/ *link\/ether *//' | sed 's/ .*//')"
 		fi
+		net_home_mac=""
+		if [ -n "${u2up_NET_HOME_IFNAME}" ]; then
+			net_home_mac="$(ip link show dev $u2up_NET_HOME_IFNAME | grep "link\/ether" | sed 's/ *link\/ether *//' | sed 's/ .*//')"
+		fi
 #		if [ -f "${U2UP_INSTALL_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
 #			source ${U2UP_INSTALL_CONF_DIR}/${U2UP_INSTALL_REPO_CONF_FILE}
 #		fi
@@ -1126,15 +1130,16 @@ main_loop () {
 			"5" "Administrator [${u2up_TARGET_ADMIN_NAME}]" \
 			"6" "Network external interface [${u2up_NET_EXTERNAL_IFNAME} - ${net_external_mac}]" \
 			"7" "Network internal interface [${u2up_NET_INTERNAL_IFNAME} - ${net_internal_mac}]" \
-			"8" "Static network external configuration [${u2up_NET_EXTERNAL_ADDR_MASK}]" \
-			"9" "Static network internal configuration [${u2up_NET_INTERNAL_ADDR_MASK}]" \
-			"10" "Local Domain [${u2up_LOCAL_DOMAIN}]" \
-			"11" "Installation packages repo [${u2up_INSTALL_REPO_BASE_URL}]" \
-			"12" "Installation partition [${u2up_TARGET_PART} - ${root_part_label}]" \
-			"13" "Get new images bundle" \
-			"14" "Install (${U2UP_IMAGE_ROOTFS_DATETIME})" \
-			"15" "Default boot [${default_boot_label}]" \
-			"16" "Reboot" \
+			"8" "Network home interface [${u2up_NET_HOME_IFNAME} - ${net_home_mac}]" \
+			"9" "Static network external configuration [${u2up_NET_EXTERNAL_ADDR_MASK}]" \
+			"10" "Static network internal configuration [${u2up_NET_INTERNAL_ADDR_MASK}]" \
+			"11" "Local Domain [${u2up_LOCAL_DOMAIN}]" \
+			"12" "Installation packages repo [${u2up_INSTALL_REPO_BASE_URL}]" \
+			"13" "Installation partition [${u2up_TARGET_PART} - ${root_part_label}]" \
+			"14" "Get new images bundle" \
+			"15" "Install (${U2UP_IMAGE_ROOTFS_DATETIME})" \
+			"16" "Default boot [${default_boot_label}]" \
+			"17" "Reboot" \
 		2>&1 >&3)
 		exit_status=$?
 		exec 3>&-
@@ -1198,16 +1203,24 @@ main_loop () {
 				$u2up_TARGET_ADMIN_NAME
 			;;
 		6)
-			display_net_external_ifname_submenu \
+			display_net_segment_ifname_submenu \
 				$U2UP_INSTALL_CONF_DIR \
+				External \
 				$u2up_NET_EXTERNAL_IFNAME
 			;;
 		7)
-			display_net_internal_ifname_submenu \
+			display_net_segment_ifname_submenu \
 				$U2UP_INSTALL_CONF_DIR \
+				Internal \
 				$u2up_NET_INTERNAL_IFNAME
 			;;
 		8)
+			display_net_segment_ifname_submenu \
+				$U2UP_INSTALL_CONF_DIR \
+				Home \
+				$u2up_NET_HOME_IFNAME
+			;;
+		9)
 			local net_external_mac_addr_old=$u2up_NET_EXTERNAL_MAC_ADDR
 			local net_external_addr_mask_old=$u2up_NET_EXTERNAL_ADDR_MASK
 			local net_external_gw_old=$u2up_NET_EXTERNAL_GW
@@ -1242,7 +1255,7 @@ main_loop () {
 				enable_u2up_net_external_config_selection
 			fi
 			;;
-		9)
+		10)
 			local net_internal_mac_addr_old=$u2up_NET_INTERNAL_MAC_ADDR
 			local net_internal_addr_mask_old=$u2up_NET_INTERNAL_ADDR_MASK
 			local net_internal_gw_old=$u2up_NET_INTERNAL_GW
@@ -1267,13 +1280,13 @@ main_loop () {
 				enable_u2up_net_internal_config_selection
 			fi
 			;;
-		10)
+		11)
 			local local_domain_old=$u2up_LOCAL_DOMAIN
 			display_local_domain_submenu \
 				$U2UP_INSTALL_CONF_DIR \
 				$u2up_LOCAL_DOMAIN
 			;;
-		11)
+		12)
 			local install_repo_base_url_old=$u2up_INSTALL_REPO_BASE_URL
 			display_install_repo_config_submenu \
 				$u2up_INSTALL_REPO_BASE_URL
@@ -1287,12 +1300,12 @@ main_loop () {
 				enable_u2up_install_repo_selection
 			fi
 			;;
-		12)
+		13)
 			display_target_part_submenu \
 				$u2up_TARGET_DISK \
 				$u2up_TARGET_PART
 			;;
-		13)
+		14)
 			check_install_repo_config_set
 			if [ $? -eq 0 ]; then
 				get_prepare_images_bundle
@@ -1302,15 +1315,15 @@ main_loop () {
 			fi
 
 			;;
-		14)
+		15)
 			execute_target_install
 			default_boot_label="$(get_default_boot_label ${U2UP_CURRENT_TARGET_DISK})"
 			;;
-		15)
+		16)
 			display_target_boot_submenu
 			default_boot_label="$(get_default_boot_label ${U2UP_CURRENT_TARGET_DISK})"
 			;;
-		16)
+		17)
 			display_yesno "Reboot" \
 				"You are about to reboot the system!\n\nDo you want to continue?" 7
 			if [ $? -eq 0 ]; then

@@ -24,6 +24,7 @@ U2UP_TARGET_HOSTNAME_CONF_FILE="30-hostname-conf"
 U2UP_TARGET_ADMIN_CONF_FILE="40-admin-conf"
 U2UP_NETWORK_EXTERNAL_CONF_FILE="50-network_external-conf"
 U2UP_NETWORK_INTERNAL_CONF_FILE="60-network_internal-conf"
+U2UP_NETWORK_HOME_CONF_FILE="65-network_home-conf"
 U2UP_INSTALL_REPO_CONF_FILE="70-install_repo-conf"
 U2UP_DOMAIN_CONF_FILE="80-domain-conf"
 
@@ -429,94 +430,88 @@ save_u2up_target_partsize_selection() {
 	return $rv
 }
 
-save_u2up_net_external_iface_selection() {
+save_u2up_net_segment_iface_selection() {
 	local rv=0
-	local ifname=$1
-	local conf_dir=${2:-${U2UP_CONF_DIR}}
+	local net_segment_name=$1
+	local ifname=$2
+	local conf_dir=${3:-${U2UP_CONF_DIR}}
+	local net_segment_conf_file=""
+	local net_segment_conf_var=""
 
 	if [ ! -d "${conf_dir}" ]; then
 		return 1
 	fi
-	cat ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE} | grep -v "u2up_NET_EXTERNAL_IFNAME=" > ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
+	case $net_segment_name in
+	External)
+		net_segment_conf_file=$U2UP_NETWORK_EXTERNAL_CONF_FILE
+		net_segment_conf_var="u2up_NET_EXTERNAL_IFNAME"
+		;;
+	Internal)
+		net_segment_conf_file=$U2UP_NETWORK_INTERNAL_CONF_FILE
+		net_segment_conf_var="u2up_NET_INTERNAL_IFNAME"
+		;;
+	Home)
+		net_segment_conf_file=$U2UP_NETWORK_HOME_CONF_FILE
+		net_segment_conf_var="u2up_NET_HOME_IFNAME"
+		;;
+	*)
+		return 1
+		;;
+	esac
+	cat ${conf_dir}/${net_segment_conf_file} | grep -v "${net_segment_conf_var}=" > ${conf_dir}/${net_segment_conf_file}_tmp
 	if [ -n "$ifname" ]; then
 		if [ "$ifname" != "none" ]; then
-			echo "local u2up_NET_EXTERNAL_IFNAME=$ifname" >> ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
+			echo "local ${net_segment_conf_var}=$ifname" >> ${conf_dir}/${net_segment_conf_file}_tmp
 		else
-			echo "local u2up_NET_EXTERNAL_IFNAME=" >> ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
+			echo "local ${net_segment_conf_var}=" >> ${conf_dir}/${net_segment_conf_file}_tmp
 		fi
 	else
 		return 1
 	fi
-	mv ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}
+	mv ${conf_dir}/${net_segment_conf_file}_tmp ${conf_dir}/${net_segment_conf_file}
 	rv=$?
 	return $rv
 }
 
-save_u2up_net_external_mac_selection() {
+save_u2up_net_segment_mac_selection() {
 	local rv=0
-	local mac=$1
-	local conf_dir=${2:-${U2UP_CONF_DIR}}
+	local net_segment_name=$1
+	local mac=$2
+	local conf_dir=${3:-${U2UP_CONF_DIR}}
+	local net_segment_conf_file=""
+	local net_segment_conf_var=""
 
 	if [ ! -d "${conf_dir}" ]; then
 		return 1
 	fi
-	cat ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE} | grep -v "u2up_NET_EXTERNAL_MAC_ADDR=" > ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
+	case $net_segment_name in
+	External)
+		net_segment_conf_file=$U2UP_NETWORK_EXTERNAL_CONF_FILE
+		net_segment_conf_var="u2up_NET_EXTERNAL_MAC_ADDR"
+		;;
+	Internal)
+		net_segment_conf_file=$U2UP_NETWORK_INTERNAL_CONF_FILE
+		net_segment_conf_var="u2up_NET_INTERNAL_MAC_ADDR"
+		;;
+	Home)
+		net_segment_conf_file=$U2UP_NETWORK_HOME_CONF_FILE
+		net_segment_conf_var="u2up_NET_HOME_MAC_ADDR"
+		;;
+	*)
+		return 1
+		;;
+	esac
+	cat ${conf_dir}/${net_segment_conf_file} | grep -v "${net_segment_conf_var}=" > ${conf_dir}/${net_segment_conf_file}_tmp
 	if [ -n "$mac" ]; then
-		if [ "$mac" != "-" ]; then
-			echo "local u2up_NET_EXTERNAL_MAC_ADDR=$mac" >> ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
+		if [ "$mac" != "none" ]; then
+			echo "local ${net_segment_conf_var}=$mac" >> ${conf_dir}/${net_segment_conf_file}_tmp
 		else
-			echo "local u2up_NET_EXTERNAL_MAC_ADDR=" >> ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
+			echo "local ${net_segment_conf_var}=" >> ${conf_dir}/${net_segment_conf_file}_tmp
 		fi
 	else
 		return 1
 	fi
-	mv ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}
-	rv=$?
-	return $rv
-}
-
-save_u2up_net_internal_iface_selection() {
-	local rv=0
-	local ifname=$1
-	local conf_dir=${2:-${U2UP_CONF_DIR}}
-
-	if [ ! -d "${conf_dir}" ]; then
-		return 1
-	fi
-	cat ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE} | grep -v "u2up_NET_INTERNAL_IFNAME=" > ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
-	if [ -n "$ifname" ]; then
-		if [ "$ifname" != "none" ]; then
-			echo "local u2up_NET_INTERNAL_IFNAME=$ifname" >> ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
-		else
-			echo "local u2up_NET_INTERNAL_IFNAME=" >> ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
-		fi
-	else
-		return 1
-	fi
-	mv ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}
-	rv=$?
-	return $rv
-}
-
-save_u2up_net_internal_mac_selection() {
-	local rv=0
-	local mac=$1
-	local conf_dir=${2:-${U2UP_CONF_DIR}}
-
-	if [ ! -d "${conf_dir}" ]; then
-		return 1
-	fi
-	cat ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE} | grep -v "u2up_NET_INTERNAL_MAC_ADDR=" > ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
-	if [ -n "$mac" ]; then
-		if [ "$mac" != "-" ]; then
-			echo "local u2up_NET_INTERNAL_MAC_ADDR=$mac" >> ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
-		else
-			echo "local u2up_NET_INTERNAL_MAC_ADDR=" >> ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
-		fi
-	else
-		return 1
-	fi
-	mv ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}
+	mv ${conf_dir}/${net_segment_conf_file}_tmp ${conf_dir}/${net_segment_conf_file}
 	rv=$?
 	return $rv
 }

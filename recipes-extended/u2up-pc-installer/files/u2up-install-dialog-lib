@@ -128,89 +128,57 @@ display_target_admin_submenu() {
 	done
 }
 
-display_net_external_ifname_submenu() {
+display_net_segment_ifname_submenu() {
 	local conf_dir=${1}
-	local net_external_ifname_current=${2}
+	local net_segment_name=${2}
+	local net_segment_ifname_current=${3}
 	local radiolist=""
 	local tag="start_tag"
 	local ifname=""
 	local mac=""
 	local none=""
-
-	if [ -f "${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}" ]; then
-		source ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}
-	fi
-	if [ -z "${net_external_ifname_current}" ]; then
-		none="on"
-	else
-		none="off"
-	fi
-	radiolist=$(ip link | grep "BROADCAST,MULTICAST" | sed 's/[0-9]*: //' | sed 's/: .*//g' | while read ifname; do
-		if [ -n "$ifname" ] && [ "$ifname" != "$u2up_NET_INTERNAL_IFNAME" ] && [[ "$ifname" != "$tag"* ]]; then
-			if [ "${tag}" == "start_tag" ]; then
-				echo -n "none|-|${none}|"
-			fi
-			tag=$ifname
-			mac="$(ip link show dev $ifname | grep "link\/ether" | sed 's/ *link\/ether *//' | sed 's/ .*//')"
-			if [ -n "$net_external_ifname_current" ] && [ "$tag" == "$net_external_ifname_current" ]; then
-				echo -n "${tag}|"$mac"|on|"
-			else
-				echo -n "${tag}|"$mac"|off|"
-			fi
-		fi
-	done)
-
-	exec 3>&1
-	selection=$(IFS='|'; \
-	dialog \
-		--backtitle "${U2UP_BACKTITLE}" \
-		--title "Network external interface selection" \
-		--clear \
-		--cancel-label "Cancel" \
-		--radiolist "Please select:" $HEIGHT $WIDTH 0 \
-		${radiolist} \
-	2>&1 1>&3)
-	exit_status=$?
-	exec 3>&-
-
-	case $exit_status in
-	$DIALOG_CANCEL|$DIALOG_ESC)
-		clear
-		echo "Return from submenu." >&2
-		return 0
-		;;
-	esac
-
-	mac="$(ip link show dev $selection | grep "link\/ether" | sed 's/ *link\/ether *//' | sed 's/ .*//')"
-	save_u2up_net_external_iface_selection $selection ${conf_dir}
-	save_u2up_net_external_mac_selection $mac ${conf_dir}
-}
-
-display_net_internal_ifname_submenu() {
-	local conf_dir=${1}
-	local net_internal_ifname_current=${2}
-	local radiolist=""
-	local tag="start_tag"
-	local ifname=""
-	local mac=""
-	local none=""
+	local if1=""
+	local_if2=""
 
 	if [ -f "${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}" ]; then
 		source ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}
 	fi
-	if [ -z "${net_internal_ifname_current}" ]; then
+	if [ -f "${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}" ]; then
+		source ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}
+	fi
+	if [ -f "${conf_dir}/${U2UP_NETWORK_HOME_CONF_FILE}" ]; then
+		source ${conf_dir}/${U2UP_NETWORK_HOME_CONF_FILE}
+	fi
+	case $net_segment_name in
+	External)
+		if1=$u2up_NET_INTERNAL_IFNAME
+		if2=$u2up_NET_HOME_IFNAME
+		;;
+	Internal)
+		if1=$u2up_NET_EXTERNAL_IFNAME
+		if2=$u2up_NET_HOME_IFNAME
+		;;
+	Home)
+		if1=$u2up_NET_INTERNAL_IFNAME
+		if2=$u2up_NET_EXTERNAL_IFNAME
+		;;
+	*)
+		return
+		;;
+	esac
+	if [ -z "${net_segment_ifname_current}" ]; then
 		none="on"
 	else
 		none="off"
 	fi
 	radiolist=$(ip link | grep "BROADCAST,MULTICAST" | sed 's/[0-9]*: //' | sed 's/: .*//g' | while read ifname; do
-		if [ -n "$ifname" ] && [ "$ifname" != "$u2up_NET_EXTERNAL_IFNAME" ] && [[ "$ifname" != "$tag"* ]]; then
+		if [ -n "$ifname" ] && [ "$ifname" != "$if1" ] && [ "$ifname" != "$if2" ] && [[ "$ifname" != "$tag"* ]]; then
 			if [ "${tag}" == "start_tag" ]; then
 				echo -n "none|-|${none}|"
 			fi
 			tag=$ifname
 			mac="$(ip link show dev $ifname | grep "link\/ether" | sed 's/ *link\/ether *//' | sed 's/ .*//')"
-			if [ -n "$net_internal_ifname_current" ] && [ "$tag" == "$net_internal_ifname_current" ]; then
+			if [ -n "$net_segment_ifname_current" ] && [ "$tag" == "$net_segment_ifname_current" ]; then
 				echo -n "${tag}|"$mac"|on|"
 			else
 				echo -n "${tag}|"$mac"|off|"
@@ -222,7 +190,7 @@ display_net_internal_ifname_submenu() {
 	selection=$(IFS='|'; \
 	dialog \
 		--backtitle "${U2UP_BACKTITLE}" \
-		--title "Network internal interface selection" \
+		--title "Network ${net_segment_name} Interface selection" \
 		--clear \
 		--cancel-label "Cancel" \
 		--radiolist "Please select:" $HEIGHT $WIDTH 0 \
@@ -239,9 +207,13 @@ display_net_internal_ifname_submenu() {
 		;;
 	esac
 
-	mac="$(ip link show dev $selection | grep "link\/ether" | sed 's/ *link\/ether *//' | sed 's/ .*//')"
-	save_u2up_net_internal_iface_selection $selection ${conf_dir}
-	save_u2up_net_internal_mac_selection $mac ${conf_dir}
+	if [ "x${selection}" != "xnone" ]; then
+		mac="$(ip link show dev $selection | grep "link\/ether" | sed 's/ *link\/ether *//' | sed 's/ .*//')"
+	else
+		mac="none"
+	fi
+	save_u2up_net_segment_iface_selection $net_segment_name $selection ${conf_dir}
+	save_u2up_net_segment_mac_selection $net_segment_name $mac ${conf_dir}
 }
 
 display_net_external_config_submenu() {
