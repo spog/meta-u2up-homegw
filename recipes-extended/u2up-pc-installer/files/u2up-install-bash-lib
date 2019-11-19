@@ -431,10 +431,10 @@ save_u2up_target_partsize_selection() {
 }
 
 save_u2up_net_segment_iface_selection() {
+	local conf_dir=$1
+	local net_segment_name=$2
+	local ifname=$3
 	local rv=0
-	local net_segment_name=$1
-	local ifname=$2
-	local conf_dir=${3:-${U2UP_CONF_DIR}}
 	local net_segment_conf_file=""
 	local net_segment_conf_var=""
 
@@ -458,7 +458,9 @@ save_u2up_net_segment_iface_selection() {
 		return 1
 		;;
 	esac
-	cat ${conf_dir}/${net_segment_conf_file} | grep -v "${net_segment_conf_var}=" > ${conf_dir}/${net_segment_conf_file}_tmp
+	if [ -f "${conf_dir}/${net_segment_conf_file}" ]; then
+		cat ${conf_dir}/${net_segment_conf_file} | grep -v "${net_segment_conf_var}=" > ${conf_dir}/${net_segment_conf_file}_tmp
+	fi
 	if [ -n "$ifname" ]; then
 		if [ "$ifname" != "none" ]; then
 			echo "local ${net_segment_conf_var}=$ifname" >> ${conf_dir}/${net_segment_conf_file}_tmp
@@ -474,10 +476,10 @@ save_u2up_net_segment_iface_selection() {
 }
 
 save_u2up_net_segment_mac_selection() {
+	local conf_dir=$1
+	local net_segment_name=$2
+	local mac=$3
 	local rv=0
-	local net_segment_name=$1
-	local mac=$2
-	local conf_dir=${3:-${U2UP_CONF_DIR}}
 	local net_segment_conf_file=""
 	local net_segment_conf_var=""
 
@@ -501,7 +503,9 @@ save_u2up_net_segment_mac_selection() {
 		return 1
 		;;
 	esac
-	cat ${conf_dir}/${net_segment_conf_file} | grep -v "${net_segment_conf_var}=" > ${conf_dir}/${net_segment_conf_file}_tmp
+	if [ -f "${conf_dir}/${net_segment_conf_file}" ]; then
+		cat ${conf_dir}/${net_segment_conf_file} | grep -v "${net_segment_conf_var}=" > ${conf_dir}/${net_segment_conf_file}_tmp
+	fi
 	if [ -n "$mac" ]; then
 		if [ "$mac" != "none" ]; then
 			echo "local ${net_segment_conf_var}=$mac" >> ${conf_dir}/${net_segment_conf_file}_tmp
