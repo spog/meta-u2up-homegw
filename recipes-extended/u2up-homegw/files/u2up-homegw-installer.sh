@@ -7,6 +7,8 @@ trap "echo 'Exited: '${0} >&2; exec 2>&-" EXIT
 exec 2> >(logger -s -t $(basename $0))
 echo >&2
 echo "Started: ${0}" >&2
+#set -e
+set -o pipefail
 #set -x
 
 U2UP_INSTALL_BASH_LIB="${HOME}/u2up-install-bash-lib-local"

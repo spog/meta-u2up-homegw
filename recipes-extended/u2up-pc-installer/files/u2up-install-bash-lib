@@ -62,6 +62,26 @@ PART_TYPE_LINUX="0FC63DAF-8483-4772-8E79-3D69D8477DE4"
 
 ######################################
 #                                    #
+# U2UP target MISC helper functions! #
+#                                    #
+######################################
+move_and_sort() {
+	local rv=0
+
+	if [ -z "${1}" ] || [ -z "${2}" ]; then
+		return 1
+	fi
+	cat $1 | sort > $2
+	rv=$?
+	if [ $rv -eq 0 ]; then
+		rm -f $1
+		rv=$?
+	fi
+	return $rv
+}
+
+######################################
+#                                    #
 # U2UP target ROOT helper functions! #
 #                                    #
 ######################################
@@ -149,11 +169,13 @@ get_root_label() {
 #	if [ -z "$file" ] || [ ! -e "$file" ]; then
 #		return $rv
 #	fi
-#	cat ${file} | grep -v "TARGET_DONE=" > ${file}_tmp
-#	rv=$?
+#	if [ -e "${file}" ]; then
+#		cat ${file} | grep -v "TARGET_DONE=" > ${file}_tmp
+#		rv=$?
+#	fi
 #	echo "TARGET_DONE=${new_target_done}" >> ${file}_tmp
 #	(( rv+=$? ))
-#	mv ${file}_tmp ${file}
+#	move_and_sort ${file}_tmp ${file}
 #	(( rv+=$? ))
 #	return $rv
 #}
@@ -173,8 +195,13 @@ update_hosts_file() {
 	fi
 	if [ $rv -eq 0 ]; then
 		names="${u2up_TARGET_HOSTNAME}"
-		cat $hosts_file | grep -v "${u2up_TARGET_HOSTNAME}" > ${hosts_file}_tmp
-		rv=$?
+		if [ -f "${hosts_file}" ]; then
+			cat $hosts_file | grep -v "${u2up_TARGET_HOSTNAME}" > ${hosts_file}_tmp
+			rv=$?
+		else
+			> ${hosts_file}_tmp
+			rv=$?
+		fi
 		echo >> ${hosts_file}_tmp
 		(( rv+=$? ))
 	fi
@@ -359,13 +386,19 @@ save_u2up_target_disk_selection() {
 	if [ ! -d "${conf_dir}" ]; then
 		return 1
 	fi
-	cat ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE} | grep -v "u2up_TARGET_DISK=" > ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
-	if [ -n "$disk" ]; then
+	if [ -f "${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
+		cat ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE} | grep -v "u2up_TARGET_DISK=" > ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
+		rv=$?
+	else
+		> ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
+		rv=$?
+	fi
+	if [ $rv -eq 0 ] && [ -n "$disk" ]; then
 		echo "local u2up_TARGET_DISK=$disk" >> ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
 	else
 		return 1
 	fi
-	mv ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}
+	move_and_sort ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}
 	rv=$?
 	return $rv
 }
@@ -375,13 +408,19 @@ save_u2up_target_part_selection() {
 	local part=$1
 	local conf_dir=${2:-${U2UP_CONF_DIR}}
 
-	cat ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE} | grep -v "u2up_TARGET_PART=" > ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
-	if [ -n "$part" ]; then
+	if [ -f "${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
+		cat ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE} | grep -v "u2up_TARGET_PART=" > ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
+		rv=$?
+	else
+		> ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
+		rv=$?
+	fi
+	if [ $rv -eq 0 ] && [ -n "$part" ]; then
 		echo "local u2up_TARGET_PART=$part" >> ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
 	else
 		return 1
 	fi
-	mv ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}
+	move_and_sort ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}
 	rv=$?
 	return $rv
 }
@@ -422,11 +461,24 @@ save_u2up_target_partsize_selection() {
 		return 1;
 	esac
 
-	cat ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE} | grep -v "${var_target_partsz_set}=" > ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
-	echo "local ${var_target_partsz_set}=$part_size" >> ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
-	mv ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}
-	rv=$?
-	echo "${var_target_partsz_current}=${part_size}"
+	if [ -f "${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}" ]; then
+		cat ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE} | grep -v "${var_target_partsz_set}=" > ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
+		rv=$?
+	else
+		> ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
+		rv=$?
+	fi
+	if [ $rv -eq 0]; then
+		echo "local ${var_target_partsz_set}=$part_size" >> ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp
+		rv=$?
+	fi
+	if [ $rv -eq 0]; then
+		move_and_sort ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}_tmp ${conf_dir}/${U2UP_TARGET_DISK_CONF_FILE}
+		rv=$?
+	fi
+	if [ $rv -eq 0]; then
+		echo "${var_target_partsz_current}=${part_size}"
+	fi
 	return $rv
 }
 
@@ -460,8 +512,12 @@ save_u2up_net_segment_iface_selection() {
 	esac
 	if [ -f "${conf_dir}/${net_segment_conf_file}" ]; then
 		cat ${conf_dir}/${net_segment_conf_file} | grep -v "${net_segment_conf_var}=" > ${conf_dir}/${net_segment_conf_file}_tmp
+		rv=$?
+	else
+		> ${conf_dir}/${net_segment_conf_file}_tmp
+		rv=$?
 	fi
-	if [ -n "$ifname" ]; then
+	if [ $rv -eq 0 ] && [ -n "$ifname" ]; then
 		if [ "$ifname" != "none" ]; then
 			echo "local ${net_segment_conf_var}=$ifname" >> ${conf_dir}/${net_segment_conf_file}_tmp
 		else
@@ -470,7 +526,7 @@ save_u2up_net_segment_iface_selection() {
 	else
 		return 1
 	fi
-	mv ${conf_dir}/${net_segment_conf_file}_tmp ${conf_dir}/${net_segment_conf_file}
+	move_and_sort ${conf_dir}/${net_segment_conf_file}_tmp ${conf_dir}/${net_segment_conf_file}
 	rv=$?
 	return $rv
 }
@@ -505,8 +561,12 @@ save_u2up_net_segment_mac_selection() {
 	esac
 	if [ -f "${conf_dir}/${net_segment_conf_file}" ]; then
 		cat ${conf_dir}/${net_segment_conf_file} | grep -v "${net_segment_conf_var}=" > ${conf_dir}/${net_segment_conf_file}_tmp
+		rv=$?
+	else
+		> ${conf_dir}/${net_segment_conf_file}_tmp
+		rv=$?
 	fi
-	if [ -n "$mac" ]; then
+	if [ $rv -eq 0 ] && [ -n "$mac" ]; then
 		if [ "$mac" != "none" ]; then
 			echo "local ${net_segment_conf_var}=$mac" >> ${conf_dir}/${net_segment_conf_file}_tmp
 		else
@@ -515,7 +575,7 @@ save_u2up_net_segment_mac_selection() {
 	else
 		return 1
 	fi
-	mv ${conf_dir}/${net_segment_conf_file}_tmp ${conf_dir}/${net_segment_conf_file}
+	move_and_sort ${conf_dir}/${net_segment_conf_file}_tmp ${conf_dir}/${net_segment_conf_file}
 	rv=$?
 	return $rv
 }
@@ -544,11 +604,24 @@ save_u2up_target_hostname_selection() {
 		return 1;
 	esac
 
-	cat ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE} | grep -v "${var_target_hostname_set}=" > ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}_tmp
-	echo "local ${var_target_hostname_set}=$value" >> ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}_tmp
-	mv ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}_tmp ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}
-	rv=$?
-	echo "${var_target_hostname_current}=${value}"
+	if [ -f "${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}" ]; then
+		cat ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE} | grep -v "${var_target_hostname_set}=" > ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}_tmp
+		rv=$?
+	else
+		> ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}_tmp
+		rv=$?
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "local ${var_target_hostname_set}=$value" >> ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}_tmp
+		rv=$?
+	fi
+	if [ $rv -eq 0 ]; then
+		move_and_sort ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}_tmp ${conf_dir}/${U2UP_TARGET_HOSTNAME_CONF_FILE}
+		rv=$?
+	fi
+	if [ $rv -eq 0]; then
+		echo "${var_target_hostname_current}=${value}"
+	fi
 	return $rv
 }
 
@@ -576,11 +649,24 @@ save_u2up_target_admin_selection() {
 		return 1;
 	esac
 
-	cat ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE} | grep -v "${var_target_admin_name_set}=" > ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}_tmp
-	echo "local ${var_target_admin_name_set}=$value" >> ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}_tmp
-	mv ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}_tmp ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}
-	rv=$?
-	echo "${var_target_admin_name_current}=${value}"
+	if [ -f "${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}" ]; then
+		cat ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE} | grep -v "${var_target_admin_name_set}=" > ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}_tmp
+		rv=$?
+	else
+		> ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}_tmp
+		rv=$?
+	fi
+	if [ $rv -eq 0]; then
+		echo "local ${var_target_admin_name_set}=$value" >> ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}_tmp
+		rv=$?
+	fi
+	if [ $rv -eq 0]; then
+		move_and_sort ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}_tmp ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}
+		rv=$?
+	fi
+	if [ $rv -eq 0]; then
+		echo "${var_target_admin_name_current}=${value}"
+	fi
 	return $rv
 }
 
@@ -624,10 +710,21 @@ save_u2up_net_external_config_selection() {
 		return 1;
 	esac
 
-	cat ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE} | grep -v "${var_net_config_set}=" > ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
-	echo "local ${var_net_config_set}=$value" >> ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
-	mv ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}
-	rv=$?
+	if [ -f "${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}" ]; then
+		cat ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE} | grep -v "${var_net_config_set}=" > ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
+		rv=$?
+	else
+		> ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
+		rv=$?
+	fi
+	if [ $rv -eq 0]; then
+		echo "local ${var_net_config_set}=$value" >> ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
+		rv=$?
+	fi
+	if [ $rv -eq 0]; then
+		move_and_sort ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}
+		rv=$?
+	fi
 	echo "${var_net_config_current}=${value}"
 	return $rv
 }
@@ -664,11 +761,24 @@ save_u2up_net_internal_config_selection() {
 		return 1;
 	esac
 
-	cat ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE} | grep -v "${var_net_config_set}=" > ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
-	echo "local ${var_net_config_set}=$value" >> ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
-	mv ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}
-	rv=$?
-	echo "${var_net_config_current}=${value}"
+	if [ -f "${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}" ]; then
+		cat ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE} | grep -v "${var_net_config_set}=" > ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
+		rv=$?
+	else
+		> ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
+		rv=$?
+	fi
+	if [ $rv -eq 0]; then
+		echo "local ${var_net_config_set}=$value" >> ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
+		rv=$?
+	fi
+	if [ $rv -eq 0]; then
+		move_and_sort ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}
+		rv=$?
+	fi
+	if [ $rv -eq 0]; then
+		echo "${var_net_config_current}=${value}"
+	fi
 	return $rv
 }
 
@@ -696,11 +806,24 @@ save_u2up_install_repo_selection() {
 		return 1;
 	esac
 
-	cat ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE} | grep -v "${var_install_repo_set}=" > ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}_tmp
-	echo "local ${var_install_repo_set}=$value" >> ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}_tmp
-	mv ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}_tmp ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}
-	rv=$?
-	echo "${var_install_repo_current}=${value}"
+	if [ -f "${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
+		cat ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE} | grep -v "${var_install_repo_set}=" > ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}_tmp
+		rv=$?
+	else
+		> ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}_tmp
+		rv=$?
+	fi
+	if [ $rv -eq 0]; then
+		echo "local ${var_install_repo_set}=$value" >> ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}_tmp
+		rv=$?
+	fi
+	if [ $rv -eq 0]; then
+		move_and_sort ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}_tmp ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}
+		rv=$?
+	fi
+	if [ $rv -eq 0]; then
+		echo "${var_install_repo_current}=${value}"
+	fi
 	return $rv
 }
 
@@ -728,11 +851,24 @@ save_u2up_local_domain_selection() {
 		return 1;
 	esac
 
-	cat ${conf_dir}/${U2UP_DOMAIN_CONF_FILE} | grep -v "${var_local_domain_set}=" > ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}_tmp
-	echo "local ${var_local_domain_set}=$value" >> ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}_tmp
-	mv ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}_tmp ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}
-	rv=$?
-	echo "${var_local_domain_current}=${value}"
+	if [ -f "${conf_dir}/${U2UP_DOMAIN_CONF_FILE}" ]; then
+		cat ${conf_dir}/${U2UP_DOMAIN_CONF_FILE} | grep -v "${var_local_domain_set}=" > ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}_tmp
+		rv=$?
+	else
+		> ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}_tmp
+		rv=$?
+	fi
+	if [ $rv -eq 0]; then
+		echo "local ${var_local_domain_set}=$value" >> ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}_tmp
+		rv=$?
+	fi
+	if [ $rv -eq 0]; then
+		move_and_sort ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}_tmp ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}
+		rv=$?
+	fi
+	if [ $rv -eq 0]; then
+		echo "${var_local_domain_current}=${value}"
+	fi
 	return $rv
 }
 
