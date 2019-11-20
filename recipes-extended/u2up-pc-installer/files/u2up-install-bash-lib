@@ -355,6 +355,39 @@ check_net_internal_ifname_set() {
 	fi
 }
 
+##########################################
+#                                        #
+# GET functions for U2UP configurations! #
+#                                        #
+##########################################
+get_net_segment_ifname_set() {
+	local conf_dir=${1}
+	local net_segment_name=${2}
+
+	case $net_segment_name in
+	External)
+		if [ -f "${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}" ]; then
+			source ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}
+			echo -n $u2up_NET_EXTERNAL_IFNAME
+		fi
+		;;
+	Internal)
+		if [ -f "${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}" ]; then
+			source ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}
+			echo -n $u2up_NET_INTERNAL_IFNAME
+		fi
+		;;
+	Home)
+		if [ -f "${conf_dir}/${U2UP_NETWORK_HOME_CONF_FILE}" ]; then
+			source ${conf_dir}/${U2UP_NETWORK_HOME_CONF_FILE}
+			echo -n $u2up_NET_HOME_IFNAME
+		fi
+		;;
+	*)
+		;;
+	esac
+}
+
 ###########################################
 #                                         #
 # SAVE functions for U2UP configurations! #
@@ -670,14 +703,18 @@ save_u2up_target_admin_selection() {
 	return $rv
 }
 
-save_u2up_net_external_config_selection() {
+save_u2up_net_segment_config_selection() {
 	local rv=1
 	local var_net_config_set=""
 	local var_net_config_current=""
 	local conf_dir=${1}
 	shift
+	local net_segment_name=${1}
+	shift
 	local value="$(echo $@ | sed 's/[^:]*://' | sed 's/ *//')"
 	local name="$(echo $@ | sed 's/RENAMED //' | sed 's/:.*//')"
+	local net_segment_conf_file=""
+	local net_segment_conf_var=""
 
 	if [ ! -d "${conf_dir}" ]; then
 		return 1
@@ -685,98 +722,93 @@ save_u2up_net_external_config_selection() {
 	if [ -z "${value}" ] || [ "x${name}" = "x${value}" ]; then
 		return 0
 	fi
-	case $name in
-	"MAC address")
-		var_net_config_set=u2up_NET_EXTERNAL_MAC_ADDR
-		var_net_config_current=net_external_mac_addr_current
+	case $net_segment_name in
+	External)
+		net_segment_conf_file=$U2UP_NETWORK_EXTERNAL_CONF_FILE
+		case $name in
+		"MAC address")
+			var_net_config_set=u2up_NET_EXTERNAL_MAC_ADDR
+			var_net_config_current=net_external_mac_addr_current
+			;;
+		"IP address/mask")
+			var_net_config_set=u2up_NET_EXTERNAL_ADDR_MASK
+			var_net_config_current=net_external_addr_mask_current
+			;;
+		"IP gateway")
+			var_net_config_set=u2up_NET_EXTERNAL_GW
+			var_net_config_current=net_external_gw_current
+			;;
+		"DNS1")
+			var_net_config_set=u2up_NET_EXTERNAL_DNS1
+			var_net_config_current=net_external_dns1_current
+			;;
+		"DNS2")
+			var_net_config_set=u2up_NET_EXTERNAL_DNS2
+			var_net_config_current=net_external_dns2_current
+			;;
+		*)
+			return 1;
+		esac
 		;;
-	"IP address/mask")
-		var_net_config_set=u2up_NET_EXTERNAL_ADDR_MASK
-		var_net_config_current=net_external_addr_mask_current
+	Internal)
+		net_segment_conf_file=$U2UP_NETWORK_INTERNAL_CONF_FILE
+		case $name in
+		"MAC address")
+			var_net_config_set=u2up_NET_INTERNAL_MAC_ADDR
+			var_net_config_current=net_internal_mac_addr_current
+			;;
+		"IP address/mask")
+			var_net_config_set=u2up_NET_INTERNAL_ADDR_MASK
+			var_net_config_current=net_internal_addr_mask_current
+			;;
+		"IP gateway")
+			var_net_config_set=u2up_NET_INTERNAL_GW
+			var_net_config_current=net_internal_gw_current
+			;;
+		*)
+			return 1;
+		esac
 		;;
-	"IP gateway")
-		var_net_config_set=u2up_NET_EXTERNAL_GW
-		var_net_config_current=net_external_gw_current
-		;;
-	"DNS1")
-		var_net_config_set=u2up_NET_EXTERNAL_DNS1
-		var_net_config_current=net_external_dns1_current
-		;;
-	"DNS2")
-		var_net_config_set=u2up_NET_EXTERNAL_DNS2
-		var_net_config_current=net_external_dns2_current
+	Home)
+		net_segment_conf_file=$U2UP_NETWORK_HOME_CONF_FILE
+		case $name in
+		"MAC address")
+			var_net_config_set=u2up_NET_HOME_MAC_ADDR
+			var_net_config_current=net_home_mac_addr_current
+			;;
+		"IP address/mask")
+			var_net_config_set=u2up_NET_HOME_ADDR_MASK
+			var_net_config_current=net_home_addr_mask_current
+			;;
+		"IP gateway")
+			var_net_config_set=u2up_NET_HOME_GW
+			var_net_config_current=net_home_gw_current
+			;;
+		*)
+			return 1;
+		esac
 		;;
 	*)
-		return 1;
-	esac
-
-	if [ -f "${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}" ]; then
-		cat ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE} | grep -v "${var_net_config_set}=" > ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
-		rv=$?
-	else
-		> ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
-		rv=$?
-	fi
-	if [ $rv -eq 0]; then
-		echo "local ${var_net_config_set}=$value" >> ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp
-		rv=$?
-	fi
-	if [ $rv -eq 0]; then
-		move_and_sort ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}_tmp ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}
-		rv=$?
-	fi
-	echo "${var_net_config_current}=${value}"
-	return $rv
-}
-
-save_u2up_net_internal_config_selection() {
-	local rv=1
-	local var_net_config_set=""
-	local var_net_config_current=""
-	local conf_dir=${1}
-	shift
-	local value="$(echo $@ | sed 's/[^:]*://' | sed 's/ *//')"
-	local name="$(echo $@ | sed 's/RENAMED //' | sed 's/:.*//')"
-
-	if [ ! -d "${conf_dir}" ]; then
 		return 1
-	fi
-	if [ -z "${value}" ] || [ "x${name}" = "x${value}" ]; then
-		return 0
-	fi
-	case $name in
-	"MAC address")
-		var_net_config_set=u2up_NET_INTERNAL_MAC_ADDR
-		var_net_config_current=net_internal_mac_addr_current
 		;;
-	"IP address/mask")
-		var_net_config_set=u2up_NET_INTERNAL_ADDR_MASK
-		var_net_config_current=net_internal_addr_mask_current
-		;;
-	"IP gateway")
-		var_net_config_set=u2up_NET_INTERNAL_GW
-		var_net_config_current=net_internal_gw_current
-		;;
-	*)
-		return 1;
 	esac
 
-	if [ -f "${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}" ]; then
-		cat ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE} | grep -v "${var_net_config_set}=" > ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
+	if [ -f "${conf_dir}/${net_segment_conf_file}" ]; then
+		cat ${conf_dir}/${net_segment_conf_file} | grep -v "${var_net_config_set}=" > ${conf_dir}/${net_segment_conf_file}_tmp
 		rv=$?
 	else
-		> ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
+		> ${conf_dir}/${net_segment_conf_file}_tmp
 		rv=$?
 	fi
-	if [ $rv -eq 0]; then
-		echo "local ${var_net_config_set}=$value" >> ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp
+	if [ $rv -eq 0 ]; then
+		echo "local ${var_net_config_set}=$value" >> ${conf_dir}/${net_segment_conf_file}_tmp
 		rv=$?
 	fi
-	if [ $rv -eq 0]; then
-		move_and_sort ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}_tmp ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}
+	if [ $rv -eq 0 ]; then
+		move_and_sort ${conf_dir}/${net_segment_conf_file}_tmp ${conf_dir}/${net_segment_conf_file}
 		rv=$?
 	fi
-	if [ $rv -eq 0]; then
+	if [ $rv -eq 0 ]; then
 		echo "${var_net_config_current}=${value}"
 	fi
 	return $rv

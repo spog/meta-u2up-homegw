@@ -1093,7 +1093,7 @@ main_loop () {
 			--clear \
 			--cancel-label "Exit" \
 			--default-item $current_tag \
-			--menu "Please select:" $HEIGHT $WIDTH 17 \
+			--menu "Please select:" $HEIGHT $WIDTH 18 \
 			"1" "Keyboard mapping [${u2up_KEYMAP}]" \
 			"2" "Target disk [${u2up_TARGET_DISK}]" \
 			"3" "Disk partitions \
@@ -1108,13 +1108,14 @@ main_loop () {
 			"8" "Network home interface [${u2up_NET_HOME_IFNAME} - ${net_home_mac}]" \
 			"9" "Static network external configuration [${u2up_NET_EXTERNAL_ADDR_MASK}]" \
 			"10" "Static network internal configuration [${u2up_NET_INTERNAL_ADDR_MASK}]" \
-			"11" "Local Domain [${u2up_LOCAL_DOMAIN}]" \
-			"12" "Installation packages repo [${u2up_INSTALL_REPO_BASE_URL}]" \
-			"13" "Installation partition [${u2up_TARGET_PART} - ${root_part_label}]" \
-			"14" "Get new images bundle" \
-			"15" "Install (${U2UP_IMAGE_ROOTFS_DATETIME})" \
-			"16" "Default boot [${default_boot_label}]" \
-			"17" "Reboot" \
+			"11" "Static network home configuration [${u2up_NET_HOME_ADDR_MASK}]" \
+			"12" "Local Domain [${u2up_LOCAL_DOMAIN}]" \
+			"13" "Installation packages repo [${u2up_INSTALL_REPO_BASE_URL}]" \
+			"14" "Installation partition [${u2up_TARGET_PART} - ${root_part_label}]" \
+			"15" "Get new images bundle" \
+			"16" "Install (${U2UP_IMAGE_ROOTFS_DATETIME})" \
+			"17" "Default boot [${default_boot_label}]" \
+			"18" "Reboot" \
 		2>&1 >&3)
 		exit_status=$?
 		exec 3>&-
@@ -1184,6 +1185,7 @@ main_loop () {
 			local net_external_dns2_old=$u2up_NET_EXTERNAL_DNS2
 			display_net_external_config_submenu \
 				$U2UP_INSTALL_CONF_DIR \
+				External \
 				$u2up_NET_EXTERNAL_MAC_ADDR \
 				$u2up_NET_EXTERNAL_ADDR_MASK \
 				$u2up_NET_EXTERNAL_GW \
@@ -1193,22 +1195,22 @@ main_loop () {
 			if [ $rv -ne 0 ]; then
 				# Restore old network external configuration
 				if [ -n "${net_external_mac_addr_mask}" ]; then
-					save_u2up_net_external_config_selection ${U2UP_CONF_DIR} "MAC address: ${net_external_mac_addr_old}"
+					save_u2up_net_segment_config_selection ${U2UP_INSTALL_CONF_DIR} External "MAC address: ${net_external_mac_addr_old}"
 				fi
 				if [ -n "${net_external_addr_mask_old}" ]; then
-					save_u2up_net_external_config_selection ${U2UP_INSTALL_CONF_DIR} "IP address/mask: ${net_external_addr_mask_old}"
+					save_u2up_net_segment_config_selection ${U2UP_INSTALL_CONF_DIR} External "IP address/mask: ${net_external_addr_mask_old}"
 				fi
 				if [ -n "${net_internal_gw_old}" ]; then
-					save_u2up_net_external_config_selection ${U2UP_INSTALL_CONF_DIR} "IP gateway: ${net_external_gw_old}"
+					save_u2up_net_segment_config_selection ${U2UP_INSTALL_CONF_DIR} External "IP gateway: ${net_external_gw_old}"
 				fi
 				if [ -n "${net_external_dns1_old}" ]; then
-					save_u2up_net_external_config_selection ${U2UP_INSTALL_CONF_DIR} "DNS1: ${net_external_dns1_old}"
+					save_u2up_net_segment_config_selection ${U2UP_INSTALL_CONF_DIR} External "DNS1: ${net_external_dns1_old}"
 				fi
 				if [ -n "${net_external_dns2_old}" ]; then
-					save_u2up_net_external_config_selection ${U2UP_INSTALL_CONF_DIR} "DNS2: ${net_external_dns2_old}"
+					save_u2up_net_segment_config_selection ${U2UP_INSTALL_CONF_DIR} External "DNS2: ${net_external_dns2_old}"
 				fi
-			else
-				enable_u2up_net_external_config_selection
+#			else
+#				enable_u2up_net_external_config_selection
 			fi
 			;;
 		10)
@@ -1217,6 +1219,7 @@ main_loop () {
 			local net_internal_gw_old=$u2up_NET_INTERNAL_GW
 			display_net_internal_config_submenu \
 				$U2UP_INSTALL_CONF_DIR \
+				Internal \
 				$u2up_NET_INTERNAL_MAC_ADDR \
 				$u2up_NET_INTERNAL_ADDR_MASK \
 				$u2up_NET_INTERNAL_GW
@@ -1224,25 +1227,45 @@ main_loop () {
 			if [ $rv -ne 0 ]; then
 				# Restore old network configuration
 				if [ -n "${net_internal_mac_addr_mask}" ]; then
-					save_u2up_net_internal_config_selection ${U2UP_CONF_DIR} "MAC address: ${net_internal_mac_addr_old}"
+					save_u2up_net_segment_config_selection ${U2UP_INSTALL_CONF_DIR} Internal "MAC address: ${net_internal_mac_addr_old}"
 				fi
 				if [ -n "${net_internal_addr_mask_old}" ]; then
-					save_u2up_net_internal_config_selection ${U2UP_INSTALL_CONF_DIR} "IP address/mask: ${net_internal_addr_mask_old}"
+					save_u2up_net_segment_config_selection ${U2UP_INSTALL_CONF_DIR} Internal "IP address/mask: ${net_internal_addr_mask_old}"
 				fi
-				if [ -n "${net_internal_gw_old}" ]; then
-					save_u2up_net_internal_config_selection ${U2UP_INSTALL_CONF_DIR} "IP gateway: ${net_internal_gw_old}"
-				fi
-			else
-				enable_u2up_net_internal_config_selection
+#			else
+#				enable_u2up_net_internal_config_selection
 			fi
 			;;
 		11)
+			local net_home_mac_addr_old=$u2up_NET_HOME_MAC_ADDR
+			local net_home_addr_mask_old=$u2up_NET_HOME_ADDR_MASK
+			local net_home_gw_old=$u2up_NET_HOME_GW
+			display_net_home_config_submenu \
+				$U2UP_INSTALL_CONF_DIR \
+				Home \
+				$u2up_NET_HOME_MAC_ADDR \
+				$u2up_NET_HOME_ADDR_MASK \
+				$u2up_NET_HOME_GW
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				# Restore old network configuration
+				if [ -n "${net_home_mac_addr_mask}" ]; then
+					save_u2up_net_segment_config_selection ${U2UP_INSTALL_CONF_DIR} Home "MAC address: ${net_home_mac_addr_old}"
+				fi
+				if [ -n "${net_home_addr_mask_old}" ]; then
+					save_u2up_net_segment_config_selection ${U2UP_INSTALL_CONF_DIR} Home "IP address/mask: ${net_home_addr_mask_old}"
+				fi
+#			else
+#				enable_u2up_net_home_config_selection
+			fi
+			;;
+		12)
 			local local_domain_old=$u2up_LOCAL_DOMAIN
 			display_local_domain_submenu \
 				$U2UP_INSTALL_CONF_DIR \
 				$u2up_LOCAL_DOMAIN
 			;;
-		12)
+		13)
 			local install_repo_base_url_old=$u2up_INSTALL_REPO_BASE_URL
 			display_install_repo_config_submenu \
 				$u2up_INSTALL_REPO_BASE_URL
@@ -1256,12 +1279,12 @@ main_loop () {
 				enable_u2up_install_repo_selection
 			fi
 			;;
-		13)
+		14)
 			display_target_part_submenu \
 				$u2up_TARGET_DISK \
 				$u2up_TARGET_PART
 			;;
-		14)
+		15)
 			check_install_repo_config_set
 			if [ $? -eq 0 ]; then
 				get_prepare_images_bundle
@@ -1271,15 +1294,15 @@ main_loop () {
 			fi
 
 			;;
-		15)
+		16)
 			execute_target_install
 			default_boot_label="$(get_default_boot_label ${U2UP_CURRENT_TARGET_DISK})"
 			;;
-		16)
+		17)
 			display_target_boot_submenu
 			default_boot_label="$(get_default_boot_label ${U2UP_CURRENT_TARGET_DISK})"
 			;;
-		17)
+		18)
 			display_yesno "Reboot" \
 				"You are about to reboot the system!\n\nDo you want to continue?" 7
 			if [ $? -eq 0 ]; then
