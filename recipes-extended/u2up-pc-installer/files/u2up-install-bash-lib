@@ -1044,57 +1044,142 @@ enable_u2up_mac_naming_eth_policy() {
 }
 
 #
-# Enable U2UP configured external networking.
-# (called from installers and chrooted during installation / upgrade)
+# Enable U2UP configured SW packages repository.
+# (called from "upgrade" installer and chrooted during installation / upgrade)
 #
-enable_u2up_net_external_config_selection() {
-	local net_external_addr=""
-	local net_uuid=""
+enable_u2up_install_repo_selection() {
+	local rv=0
 	local conf_dir=${1:-${U2UP_CONF_DIR}}
+
+	if [ ! -f "${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
+		return 1
+	fi
+	source ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}
+#	if [ $TARGET_DONE -eq 0 ]; then
+		if [ -n "${u2up_INSTALL_REPO_BASE_URL}" ]; then
+			mkdir -p /etc/yum.repos.d
+			(( rv+=$? ))
+			echo "[base-repo]" > /etc/yum.repos.d/base.repo
+			(( rv+=$? ))
+			echo "name=Base installation repository" >> /etc/yum.repos.d/base.repo
+			(( rv+=$? ))
+			echo "baseurl=${u2up_INSTALL_REPO_BASE_URL}" >> /etc/yum.repos.d/base.repo
+			(( rv+=$? ))
+			echo "enabled=1" >> /etc/yum.repos.d/base.repo
+			(( rv+=$? ))
+			echo "metadata_expire=0" >> /etc/yum.repos.d/base.repo
+			(( rv+=$? ))
+			echo "gpgcheck=0" >> /etc/yum.repos.d/base.repo
+			(( rv+=$? ))
+#			set_target_done_for ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE} ${new_target_done}
+#			rv=$?
+		else
+			rm -rf /etc/yum.repos.d
+			rv=$?
+		fi
+#	fi
+	return $rv
+}
+
+############################################################
+#                                                          #
+# MISC functions of the U2UP configuration / installation! #
+#                                                          #
+############################################################
+#
+# Configure U2UP defined network segment.
+# (called chrooted during installation / upgrade)
+#
+configure_u2up_net_segment() {
+	local conf_dir=$1
+	local net_segment_name=$2
+	local net_segment_addr=""
+	local net_segment_zone=""
+	local net_segment_id=""
+	local net_uuid=""
 	local msg=""
 	local rv=0
+	local net_segment_conf_file=""
+	local net_segment_conf_ifname=""
+	local net_segment_conf_mac_addr=""
+	local net_segment_conf_addr_mask=""
+	local net_segment_conf_gw=""
 
-	if [ $rv -eq 0 ] && [ ! -f "${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}" ]; then
-		msg="Missing static external network configuration!"
+	if [ ! -d "${conf_dir}" ]; then
+		return 1
+	fi
+	case $net_segment_name in
+	External)
+		net_segment_id="external"
+		net_segment_zone="external"
+		net_segment_conf_file=$U2UP_NETWORK_EXTERNAL_CONF_FILE
+		net_segment_conf_ifname="u2up_NET_EXTERNAL_IFNAME"
+		net_segment_conf_mac_addr="u2up_NET_EXTERNAL_MAC_ADDR"
+		net_segment_conf_addr_mask="u2up_NET_EXTERNAL_ADDR_MASK"
+		net_segment_conf_gw="u2up_NET_EXTERNAL_GW"
+		;;
+	Internal)
+		net_segment_id="internal"
+		net_segment_zone="internal"
+		net_segment_conf_file=$U2UP_NETWORK_INTERNAL_CONF_FILE
+		net_segment_conf_ifname="u2up_NET_INTERNAL_IFNAME"
+		net_segment_conf_mac_addr="u2up_NET_INTERNAL_MAC_ADDR"
+		net_segment_conf_addr_mask="u2up_NET_INTERNAL_ADDR_MASK"
+		net_segment_conf_gw="u2up_NET_INTERNAL_GW"
+		;;
+	Home)
+		net_segment_id="home"
+		net_segment_zone="home"
+		net_segment_conf_file=$U2UP_NETWORK_HOME_CONF_FILE
+		net_segment_conf_ifname="u2up_NET_HOME_IFNAME"
+		net_segment_conf_mac_addr="u2up_NET_HOME_MAC_ADDR"
+		net_segment_conf_addr_mask="u2up_NET_HOME_ADDR_MASK"
+		net_segment_conf_gw="u2up_NET_HOME_GW"
+		;;
+	*)
+		msg="Unknown U2UP network segment configuration request!"
+		rv=1
+		;;
+	esac
+	if [ $rv -eq 0 ] && [ ! -f "${conf_dir}/${net_segment_conf_file}" ]; then
+		msg="Missing U2UP network segment configuration file!"
 		rv=1
 	fi
 	if [ $rv -eq 0 ]; then
-		source ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}
+		source ${conf_dir}/${net_segment_conf_file}
 		if \
-			[ -z "$u2up_NET_EXTERNAL_IFNAME" ] || \
-			[ -z "$u2up_NET_EXTERNAL_ADDR_MASK" ] || \
-			[ -z "$u2up_NET_EXTERNAL_GW" ] || \
-			[ -z "$u2up_NET_EXTERNAL_DNS1" ];
+			[ -z "${!net_segment_conf_ifname}" ] || \
+			[ -z "${!net_segment_conf_addr_mask}" ]
 		then
-			msg="Incomplete static external network configuration!"
+			msg="Incomplete U2UP network segment configuration!"
 			rv=1
 		else
-			net_external_addr=$(echo -n "${u2up_NET_EXTERNAL_ADDR_MASK}" | sed 's|\/.*||g')
+			net_segment_addr=$(echo -n "${!net_segment_conf_addr_mask}" | sed 's|\/.*||g')
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
 		net_uuid=$(uuidgen)
 		rv=$?
 		if [ $rv -ne 0 ]; then
-			msg="Unable to generate new UUID for external network configuration!"
+			msg="Unable to generate new UUID for the U2UP network segment configuration!"
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		cat > /etc/NetworkManager/system-connections/external.nmconnection << EOF
+		cat > /etc/NetworkManager/system-connections/${net_segment_id}.nmconnection << EOF
 [connection]
-id=external
+id=${net_segment_id}
 uuid=${net_uuid}
 type=ethernet
-interface-name=${u2up_NET_EXTERNAL_IFNAME}
+interface-name=${!net_segment_conf_ifname}
 permissions=
-zone=external
+zone=${net_segment_zone}
 
 [ethernet]
-cloned-mac-address=${u2up_NET_EXTERNAL_MAC_ADDR}
+cloned-mac-address=${!net_segment_conf_mac_addr}
 mac-address-blacklist=
 
 [ipv4]
-address1=${u2up_NET_EXTERNAL_ADDR_MASK},${u2up_NET_EXTERNAL_GW}
+address1=${!net_segment_conf_addr_mask},${!net_segment_conf_gw}
 dns=127.0.0.1;
 dns-search=
 method=manual
@@ -1106,14 +1191,55 @@ method=auto
 EOF
 		rv=$?
 		if [ $rv -ne 0 ]; then
-			msg="Failed to write \"NetworkManager\" static external network configuration!"
+			msg="Failed to write \"NetworkManager\" U2UP network segment configuration!"
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		chmod 600 /etc/NetworkManager/system-connections/external.nmconnection
+		chmod 600 /etc/NetworkManager/system-connections/${net_segment_id}.nmconnection
 		rv=$?
 		if [ $rv -ne 0 ]; then
-			msg="Failed to set file permissions for \"NetworkManager\" static external network configuration!"
+			msg="Failed to set file permissions for \"NetworkManager\" U2UP network segment configuration!"
+		fi
+	fi
+	if [ $rv -ne 0 ]; then
+		echo "${msg}" >&2
+	fi
+	return $rv
+}
+
+#
+# Configure U2UP required services.
+# (called only chrooted during installation / upgrade)
+#
+configure_u2up_required_services() {
+	local msg=""
+	local conf_dir=${U2UP_CONF_DIR}
+	local net_internal_addr=""
+	local net_home_addr=""
+	local rv=0
+
+	if [ -f "${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}" ]; then
+		source ${conf_dir}/${U2UP_NETWORK_EXTERNAL_CONF_FILE}
+	fi
+	if [ -f "${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}" ]; then
+		source ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}
+	fi
+	if [ -f "${conf_dir}/${U2UP_NETWORK_HOME_CONF_FILE}" ]; then
+		source ${conf_dir}/${U2UP_NETWORK_HOME_CONF_FILE}
+	fi
+	if [ -f "${conf_dir}/${U2UP_DOMAIN_CONF_FILE}" ]; then
+		source ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}
+	fi
+	net_internal_addr=$(echo -n "${u2up_NET_INTERNAL_ADDR_MASK}" | sed 's|\/.*||g')
+	net_home_addr=$(echo -n "${u2up_NET_HOME_ADDR_MASK}" | sed 's|\/.*||g')
+	if [ $rv -eq 0 ]; then
+		echo "Enabling \"IPv4 forwarding\"..." >&2
+		if [ -f "/etc/sysctl.conf" ]; then
+			sed -i 's|.*net.ipv4.ip_forward=.*|net.ipv4.ip_forward=1|' /etc/sysctl.conf
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				msg="Failed to enable \"IPv4 forwarding\"!"
+			fi
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
@@ -1163,138 +1289,22 @@ EOF
 				msg="Failed to remove dbus-org.freedesktop.resolve1.service!"
 			fi
 		fi
-		if [ $rv -eq 0 ]; then
-			if [ -f "/etc/resolv.conf_orig" ]; then
-				rm -f /etc/resolv.conf
-				rv=$?
-				if [ $rv -ne 0 ]; then
-					msg="Failed to remove old resolv.conf!"
-				fi
-			else
-				mv /etc/resolv.conf /etc/resolv.conf_orig
-				rv=$?
-				if [ $rv -ne 0 ]; then
-					msg="Failed to move original resolv.conf!"
-				fi
-			fi
-		fi
-		if [ $rv -eq 0 ]; then
-			mkdir -p /srv/etc/dnsmasq.d
-			rv=$?
-			if [ $rv -ne 0 ]; then
-				msg="Failed to make directory /srv/etc/dnsmasq.d!"
-			fi
-		fi
-		if [ $rv -eq 0 ]; then
-			cat > /srv/etc/dnsmasq.d/10-servers.conf << EOF
-#/srv/etc/dnsmasq.d/10-servers.conf
-server=${u2up_NET_EXTERNAL_DNS1}
-EOF
-			rv=$?
-			if [ $rv -ne 0 ]; then
-				msg="Failed to write dnsmasq.d/10-servers.conf!"
-			fi
-		fi
 	fi
 	if [ $rv -eq 0 ]; then
-		echo "Enabling \"IPv4 forwarding\"..." >&2
-		if [ -f "/etc/sysctl.conf" ]; then
-			sed -i 's|.*net.ipv4.ip_forward=.*|net.ipv4.ip_forward=1|' /etc/sysctl.conf
+		echo "Preparing \"dnamasq\" configuration of the installed system..." >&2
+		if [ -f "/etc/resolv.conf_orig" ]; then
+			rm -f /etc/resolv.conf
 			rv=$?
 			if [ $rv -ne 0 ]; then
-				msg="Failed to enable \"IPv4 forwarding\"!"
+				msg="Failed to remove old resolv.conf!"
 			fi
-		fi
-	fi
-	if [ $rv -ne 0 ]; then
-		echo "${msg}" >&2
-	fi
-	return $rv
-}
-
-#
-# Enable U2UP configured internal networking.
-# (called from installers and chrooted during installation / upgrade)
-#
-enable_u2up_net_internal_config_selection() {
-	local net_internal_addr=""
-	local net_local_domain=""
-	local net_uuid=""
-	local conf_dir=${1:-${U2UP_CONF_DIR}}
-	local msg=""
-	local rv=0
-
-	if [ $rv -eq 0 ] && [ ! -f "${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}" ]; then
-		msg="Missing static internal network configuration!"
-		rv=1
-	fi
-	if [ $rv -eq 0 ]; then
-		if [ -f "${conf_dir}/${U2UP_DOMAIN_CONF_FILE}" ]; then
-			source ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}
-			net_local_domain=${u2up_LOCAL_DOMAIN}
 		else
-			net_local_domain="localdomain"
+			mv /etc/resolv.conf /etc/resolv.conf_orig
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				msg="Failed to move original resolv.conf!"
+			fi
 		fi
-
-	fi
-	if [ $rv -eq 0 ]; then
-		source ${conf_dir}/${U2UP_NETWORK_INTERNAL_CONF_FILE}
-		if \
-			[ -z "$u2up_NET_INTERNAL_IFNAME" ] || \
-			[ -z "$u2up_NET_INTERNAL_ADDR_MASK" ] || \
-			[ -z "$u2up_NET_INTERNAL_GW" ];
-		then
-			msg="Incomplete static internal network configuration!"
-			rv=1
-		else
-			net_internal_addr=$(echo -n "${u2up_NET_INTERNAL_ADDR_MASK}" | sed 's|\/.*||g')
-		fi
-	fi
-	if [ $rv -eq 0 ]; then
-		net_uuid=$(uuidgen)
-		rv=$?
-		if [ $rv -ne 0 ]; then
-			msg="Unable to generate new UUID for internal network configuration!"
-		fi
-	fi
-	if [ $rv -eq 0 ]; then
-		cat > /etc/NetworkManager/system-connections/internal.nmconnection << EOF
-[connection]
-id=internal
-uuid=${net_uuid}
-type=ethernet
-interface-name=${u2up_NET_INTERNAL_IFNAME}
-permissions=
-zone=trusted
-
-[ethernet]
-cloned-mac-address=${u2up_NET_INTERNAL_MAC_ADDR}
-mac-address-blacklist=
-
-[ipv4]
-address1=${u2up_NET_INTERNAL_ADDR_MASK}
-dns=127.0.0.1;
-dns-search=
-method=manual
-
-[ipv6]
-addr-gen-mode=stable-privacy
-dns-search=
-method=auto
-EOF
-#method=ignore
-		rv=$?
-		if [ $rv -ne 0 ]; then
-			msg="Failed to write \"NetworkManager\" static internal network configuration!"
-		fi
-	fi
-	if [ $rv -eq 0 ]; then
-		chmod 600 /etc/NetworkManager/system-connections/internal.nmconnection
-		rv=$?
-		if [ $rv -ne 0 ]; then
-			msg="Failed to set file permissions for \"NetworkManager\" static internal network configuration!"
-		fi
-	fi
 		if [ $rv -eq 0 ]; then
 			if [ -f "/etc/dnsmasq.conf_orig" ]; then
 				rm -f /etc/dnsmasq.conf
@@ -1318,11 +1328,30 @@ bogus-priv
 no-resolv
 
 expand-hosts
-domain=${net_local_domain}
-local=/${net_local_domain}/
+domain=${u2up_LOCAL_DOMAIN}
+local=/${u2up_LOCAL_DOMAIN}/
 
 listen-address=127.0.0.1
+EOF
+			if [ -n "${net_internal_addr}" ]; then
+				cat >> /etc/dnsmasq.conf << EOF
 listen-address=${net_internal_addr}
+EOF
+				rv=$?
+				if [ $rv -ne 0 ]; then
+					msg="Failed to write common dnsmasq.conf!"
+				fi
+			fi
+			if [ -n "${net_home_addr}" ]; then
+				cat >> /etc/dnsmasq.conf << EOF
+listen-address=${net_home_addr}
+EOF
+				rv=$?
+				if [ $rv -ne 0 ]; then
+					msg="Failed to write common dnsmasq.conf!"
+				fi
+			fi
+		cat >> /etc/dnsmasq.conf << EOF
 bind-interfaces
 
 servers-file=/srv/etc/dnsmasq_servers
@@ -1337,24 +1366,35 @@ EOF
 				msg="Failed to write common dnsmasq.conf!"
 			fi
 		fi
-	if [ $rv -ne 0 ]; then
-		echo "${msg}" >&2
 	fi
-	return $rv
-}
-
-#
-# Enable U2UP additional services.
-# (called only chrooted during installation / upgrade)
-#
-enable_u2up_additional_services() {
-	local msg=""
-	local rv=0
-
 	if [ $rv -eq 0 ]; then
 		echo "Preparing specific \"dnsmasq\" service configuration..." >&2
 		mkdir -p /srv/etc/dnsmasq.d
 		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to make directory /srv/etc/dnsmasq.d!"
+		fi
+		if [ $rv -eq 0 ]; then
+			if [ -n "${u2up_NET_EXTERNAL_DNS1}" ]; then
+				cat > /srv/etc/dnsmasq.d/10-servers.conf << EOF
+#/srv/etc/dnsmasq.d/10-servers.conf
+server=${u2up_NET_EXTERNAL_DNS1}
+EOF
+				rv=$?
+				if [ $rv -ne 0 ]; then
+					msg="Failed to write dnsmasq.d/10-servers.conf!"
+				fi
+			fi
+			if [ -n "${u2up_NET_EXTERNAL_DNS2}" ]; then
+				cat >> /srv/etc/dnsmasq.d/10-servers.conf << EOF
+server=${u2up_NET_EXTERNAL_DNS2}
+EOF
+				rv=$?
+				if [ $rv -ne 0 ]; then
+					msg="Failed to write dnsmasq.d/10-servers.conf!"
+				fi
+			fi
+		fi
 		if [ $rv -eq 0 ]; then
 			if [ -f "${U2UP_TMP_SRV_DIR}/etc/dnsmasq_servers" ]; then
 				cp -p ${U2UP_TMP_SRV_DIR}/etc/dnsmasq_servers /srv/etc/
@@ -1388,9 +1428,9 @@ enable_u2up_additional_services() {
 				cp -p ${U2UP_TMP_SRV_DIR}/etc/dnsmasq.d/30-dhcp-ranges.conf /srv/etc/dnsmasq.d/
 				(( rv+=$? ))
 			fi
-		fi
-		if [ $rv -ne 0 ]; then
-			msg="Failed to prepare specific \"dnsmasq\" service configuration!"
+			if [ $rv -ne 0 ]; then
+				msg="Failed to prepare specific \"dnsmasq\" service configuration!"
+			fi
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
@@ -1730,49 +1770,6 @@ EOF
 	return $rv
 }
 
-#
-# Enable U2UP configured SW packages repository.
-# (called from "upgrade" installer and chrooted during installation / upgrade)
-#
-enable_u2up_install_repo_selection() {
-	local rv=0
-	local conf_dir=${1:-${U2UP_CONF_DIR}}
-
-	if [ ! -f "${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
-		return 1
-	fi
-	source ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}
-#	if [ $TARGET_DONE -eq 0 ]; then
-		if [ -n "${u2up_INSTALL_REPO_BASE_URL}" ]; then
-			mkdir -p /etc/yum.repos.d
-			(( rv+=$? ))
-			echo "[base-repo]" > /etc/yum.repos.d/base.repo
-			(( rv+=$? ))
-			echo "name=Base installation repository" >> /etc/yum.repos.d/base.repo
-			(( rv+=$? ))
-			echo "baseurl=${u2up_INSTALL_REPO_BASE_URL}" >> /etc/yum.repos.d/base.repo
-			(( rv+=$? ))
-			echo "enabled=1" >> /etc/yum.repos.d/base.repo
-			(( rv+=$? ))
-			echo "metadata_expire=0" >> /etc/yum.repos.d/base.repo
-			(( rv+=$? ))
-			echo "gpgcheck=0" >> /etc/yum.repos.d/base.repo
-			(( rv+=$? ))
-#			set_target_done_for ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE} ${new_target_done}
-#			rv=$?
-		else
-			rm -rf /etc/yum.repos.d
-			rv=$?
-		fi
-#	fi
-	return $rv
-}
-
-############################################################
-#                                                          #
-# MISC functions of the U2UP configuration / installation! #
-#                                                          #
-############################################################
 #
 # Prepare a new set of U2UP configuration files to be used
 # in upgrade.

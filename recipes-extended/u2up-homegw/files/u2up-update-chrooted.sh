@@ -142,29 +142,37 @@ if [ $? -ne 0 ]; then
 fi
 echo "Successfully configured \"mac\" naming policy for eth devices of the installed system!" >&2
 
-echo "Configuring \"internal network\" of the installed system..." >&2
-enable_u2up_net_internal_config_selection
+echo "Configuring \"external\" network segment of the installed system..." >&2
+configure_u2up_net_segment ${U2UP_CONF_DIR} External
 if [ $? -ne 0 ]; then
-	echo "Failed to configure \"internal network\" of the installed system!" >&2
+	echo "Failed to configure \"external\" network segment of the installed system!" >&2
 	exit 1
 fi
-echo "Successfully configured \"internal network\" of the installed system!" >&2
+echo "Successfully configured \"external\" network segment of the installed system!" >&2
 
-echo "Configuring \"external network\" of the installed system..." >&2
-enable_u2up_net_external_config_selection
+echo "Configuring \"internal\" network segment of the installed system..." >&2
+configure_u2up_net_segment ${U2UP_CONF_DIR} Internal
 if [ $? -ne 0 ]; then
-	echo "Failed to configure \"external network\" of the installed system!" >&2
+	echo "Failed to configure \"internal\" network segment of the installed system!" >&2
 	exit 1
 fi
-echo "Successfully configured \"external network\" of the installed system!" >&2
+echo "Successfully configured \"internal\" network segment of the installed system!" >&2
 
-echo "Configuring additional services of the installed system..." >&2
-enable_u2up_additional_services
+echo "Configuring \"home\" network segment of the installed system..." >&2
+configure_u2up_net_segment ${U2UP_CONF_DIR} Home
 if [ $? -ne 0 ]; then
-	echo "Failed to configure additional services of the installed system!" >&2
+	echo "Failed to configure \"home\" network segment of the installed system!" >&2
 	exit 1
 fi
-echo "Successfully configured additional services of the installed system!" >&2
+echo "Successfully configured \"home\" network segment of the installed system!" >&2
+
+echo "Configuring U2UP required services of the installed system..." >&2
+configure_u2up_required_services
+if [ $? -ne 0 ]; then
+	echo "Failed to configure U2UP required services of the installed system!" >&2
+	exit 1
+fi
+echo "Successfully configured U2UP required services of the installed system!" >&2
 
 echo "Configuring SW packages repository for the installed system..." >&2
 enable_u2up_install_repo_selection
