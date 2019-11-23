@@ -231,6 +231,16 @@ update_hosts_file() {
 			fi
 		fi
 	fi
+	if [ $rv -eq 0 ] && [ -f "${conf_dir}/${U2UP_NETWORK_HOME_CONF_FILE}" ]; then
+		source ${conf_dir}/${U2UP_NETWORK_HOME_CONF_FILE}
+		if [ -n "$u2up_NET_HOME_ADDR_MASK" ]; then
+			net_addr=$(echo -n "${u2up_NET_HOME_ADDR_MASK}" | sed 's|\/.*||g')
+			if [ -n "${net_addr}" ]; then
+				echo -e "${net_addr}\t${names}" >> ${hosts_file}_tmp
+				rv=$?
+			fi
+		fi
+	fi
 	if [ $rv -eq 0 ]; then
 		mv ${hosts_file}_tmp $hosts_file
 		rv=$?
@@ -872,11 +882,11 @@ save_u2up_local_domain_selection() {
 		var_domain_config_current=local_domain_current
 		;;
 	"Forward DNS1")
-		var_domain_config_set=u2up_NET_FORWARD_DNS1
+		var_domain_config_set=u2up_FORWARD_DNS1
 		var_domain_config_current=forward_dns1_current
 		;;
 	"Forward DNS2")
-		var_domain_config_set=u2up_NET_FORWARD_DNS2
+		var_domain_config_set=u2up_FORWARD_DNS2
 		var_domain_config_current=forward_dns2_current
 			;;
 	*)

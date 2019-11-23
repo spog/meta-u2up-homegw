@@ -1245,13 +1245,13 @@ main_loop () {
 			;;
 		12)
 			local local_domain_old=$u2up_LOCAL_DOMAIN
-			local forward_dns1_old=$u2up_NET_FORWARD_DNS1
-			local forward_dns2_old=$u2up_NET_FORWARD_DNS2
+			local forward_dns1_old=$u2up_FORWARD_DNS1
+			local forward_dns2_old=$u2up_FORWARD_DNS2
 			display_local_domain_submenu \
 				$U2UP_INSTALL_CONF_DIR \
 				$u2up_LOCAL_DOMAIN \
-				$u2up_NET_FORWARD_DNS1 \
-				$u2up_NET_FORWARD_DNS2
+				$u2up_FORWARD_DNS1 \
+				$u2up_FORWARD_DNS2
 			rv=$?
 			if [ $rv -ne 0 ]; then
 				# Restore old domain configuration
