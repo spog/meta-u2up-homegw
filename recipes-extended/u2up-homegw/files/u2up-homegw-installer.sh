@@ -118,7 +118,7 @@ display_keymap_submenu() {
 	save_u2up_keymap_selection $selection
 	rv=$?
 	if [ $rv -eq 0 ]; then
-		enable_u2up_keymap_selection
+		configure_u2up_keymap_selection
 	fi
 }
 
@@ -1181,16 +1181,12 @@ main_loop () {
 			local net_external_mac_addr_old=$u2up_NET_EXTERNAL_MAC_ADDR
 			local net_external_addr_mask_old=$u2up_NET_EXTERNAL_ADDR_MASK
 			local net_external_gw_old=$u2up_NET_EXTERNAL_GW
-			local net_external_dns1_old=$u2up_NET_EXTERNAL_DNS1
-			local net_external_dns2_old=$u2up_NET_EXTERNAL_DNS2
 			display_net_external_config_submenu \
 				$U2UP_INSTALL_CONF_DIR \
 				External \
 				$u2up_NET_EXTERNAL_MAC_ADDR \
 				$u2up_NET_EXTERNAL_ADDR_MASK \
-				$u2up_NET_EXTERNAL_GW \
-				$u2up_NET_EXTERNAL_DNS1 \
-				$u2up_NET_EXTERNAL_DNS2
+				$u2up_NET_EXTERNAL_GW
 			rv=$?
 			if [ $rv -ne 0 ]; then
 				# Restore old network external configuration
@@ -1203,14 +1199,6 @@ main_loop () {
 				if [ -n "${net_internal_gw_old}" ]; then
 					save_u2up_net_segment_config_selection ${U2UP_INSTALL_CONF_DIR} External "IP gateway: ${net_external_gw_old}"
 				fi
-				if [ -n "${net_external_dns1_old}" ]; then
-					save_u2up_net_segment_config_selection ${U2UP_INSTALL_CONF_DIR} External "DNS1: ${net_external_dns1_old}"
-				fi
-				if [ -n "${net_external_dns2_old}" ]; then
-					save_u2up_net_segment_config_selection ${U2UP_INSTALL_CONF_DIR} External "DNS2: ${net_external_dns2_old}"
-				fi
-#			else
-#				enable_u2up_net_external_config_selection
 			fi
 			;;
 		10)
@@ -1232,8 +1220,6 @@ main_loop () {
 				if [ -n "${net_internal_addr_mask_old}" ]; then
 					save_u2up_net_segment_config_selection ${U2UP_INSTALL_CONF_DIR} Internal "IP address/mask: ${net_internal_addr_mask_old}"
 				fi
-#			else
-#				enable_u2up_net_internal_config_selection
 			fi
 			;;
 		11)
@@ -1255,15 +1241,27 @@ main_loop () {
 				if [ -n "${net_home_addr_mask_old}" ]; then
 					save_u2up_net_segment_config_selection ${U2UP_INSTALL_CONF_DIR} Home "IP address/mask: ${net_home_addr_mask_old}"
 				fi
-#			else
-#				enable_u2up_net_home_config_selection
 			fi
 			;;
 		12)
 			local local_domain_old=$u2up_LOCAL_DOMAIN
+			local forward_dns1_old=$u2up_NET_FORWARD_DNS1
+			local forward_dns2_old=$u2up_NET_FORWARD_DNS2
 			display_local_domain_submenu \
 				$U2UP_INSTALL_CONF_DIR \
-				$u2up_LOCAL_DOMAIN
+				$u2up_LOCAL_DOMAIN \
+				$u2up_NET_FORWARD_DNS1 \
+				$u2up_NET_FORWARD_DNS2
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				# Restore old domain configuration
+				if [ -n "${forward_dns1_old}" ]; then
+					save_u2up_local_domain_selection ${U2UP_INSTALL_CONF_DIR} "Forward DNS1: ${forward_dns1_old}"
+				fi
+				if [ -n "${forward_dns2_old}" ]; then
+					save_u2up_local_domain_selection ${U2UP_INSTALL_CONF_DIR} "Forward DNS2: ${forward_dns2_old}"
+				fi
+			fi
 			;;
 		13)
 			local install_repo_base_url_old=$u2up_INSTALL_REPO_BASE_URL
@@ -1276,7 +1274,7 @@ main_loop () {
 					save_u2up_install_repo_selection ${U2UP_INSTALL_CONF_DIR} "Base URL: ${install_repo_base_url_old}"
 				fi
 			else
-				enable_u2up_install_repo_selection
+				configure_u2up_install_repo_selection
 			fi
 			;;
 		14)

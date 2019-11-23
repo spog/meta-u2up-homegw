@@ -738,14 +738,6 @@ save_u2up_net_segment_config_selection() {
 			var_net_config_set=u2up_NET_EXTERNAL_GW
 			var_net_config_current=net_external_gw_current
 			;;
-		"DNS1")
-			var_net_config_set=u2up_NET_EXTERNAL_DNS1
-			var_net_config_current=net_external_dns1_current
-			;;
-		"DNS2")
-			var_net_config_set=u2up_NET_EXTERNAL_DNS2
-			var_net_config_current=net_external_dns2_current
-			;;
 		*)
 			return 1;
 		esac
@@ -845,15 +837,15 @@ save_u2up_install_repo_selection() {
 		> ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}_tmp
 		rv=$?
 	fi
-	if [ $rv -eq 0]; then
+	if [ $rv -eq 0 ]; then
 		echo "local ${var_install_repo_set}=$value" >> ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}_tmp
 		rv=$?
 	fi
-	if [ $rv -eq 0]; then
+	if [ $rv -eq 0 ]; then
 		move_and_sort ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}_tmp ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}
 		rv=$?
 	fi
-	if [ $rv -eq 0]; then
+	if [ $rv -eq 0 ]; then
 		echo "${var_install_repo_current}=${value}"
 	fi
 	return $rv
@@ -861,8 +853,8 @@ save_u2up_install_repo_selection() {
 
 save_u2up_local_domain_selection() {
 	local rv=1
-	local var_local_domain_set=""
-	local var_local_domain_current=""
+	local var_domain_config_set=""
+	local var_domain_config_current=""
 	local conf_dir=${1}
 	shift
 	local value="$(echo $@ | sed 's/[^:]*://' | sed 's/ *//')"
@@ -876,45 +868,53 @@ save_u2up_local_domain_selection() {
 	fi
 	case $name in
 	"Local Domain")
-		var_local_domain_set=u2up_LOCAL_DOMAIN
-		var_local_domain_current=local_domain_current
+		var_domain_config_set=u2up_LOCAL_DOMAIN
+		var_domain_config_current=local_domain_current
 		;;
+	"Forward DNS1")
+		var_domain_config_set=u2up_NET_FORWARD_DNS1
+		var_domain_config_current=forward_dns1_current
+		;;
+	"Forward DNS2")
+		var_domain_config_set=u2up_NET_FORWARD_DNS2
+		var_domain_config_current=forward_dns2_current
+			;;
 	*)
 		return 1;
 	esac
 
 	if [ -f "${conf_dir}/${U2UP_DOMAIN_CONF_FILE}" ]; then
-		cat ${conf_dir}/${U2UP_DOMAIN_CONF_FILE} | grep -v "${var_local_domain_set}=" > ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}_tmp
+		cat ${conf_dir}/${U2UP_DOMAIN_CONF_FILE} | grep -v "${var_domain_config_set}=" > ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}_tmp
 		rv=$?
 	else
 		> ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}_tmp
 		rv=$?
 	fi
-	if [ $rv -eq 0]; then
-		echo "local ${var_local_domain_set}=$value" >> ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}_tmp
+	if [ $rv -eq 0 ]; then
+		echo "local ${var_domain_config_set}=$value" >> ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}_tmp
 		rv=$?
 	fi
-	if [ $rv -eq 0]; then
+	if [ $rv -eq 0 ]; then
 		move_and_sort ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}_tmp ${conf_dir}/${U2UP_DOMAIN_CONF_FILE}
 		rv=$?
 	fi
-	if [ $rv -eq 0]; then
-		echo "${var_local_domain_current}=${value}"
+	if [ $rv -eq 0 ]; then
+		echo "${var_domain_config_current}=${value}"
 	fi
 	return $rv
 }
 
-#############################################
-#                                           #
-# ENABLE functions for U2UP configurations! #
-#                                           #
-#############################################
+############################################
+#                                          #
+# CONFIGURE functions for U2UP parameters! #
+#                                          #
+############################################
 #
-# Enable U2UP configured target keymap.
+# Configure U2UP defined target keymap.
 # (called from installers and chrooted during installation / upgrade)	
 # (TODO: locale settings)
 #
-enable_u2up_keymap_selection() {
+configure_u2up_keymap_selection() {
 	local rv=1
 	local conf_dir=${1:-${U2UP_CONF_DIR}}
 
@@ -938,10 +938,10 @@ enable_u2up_keymap_selection() {
 }
 
 #
-# Enable U2UP configured target hostname.
+# Configure U2UP defineed target hostname.
 # (called only chrooted during installation / upgrade)	
 #
-enable_u2up_target_hostname_selection() {
+configure_u2up_target_hostname_selection() {
 	local rv=1
 	local conf_dir=${1:-${U2UP_CONF_DIR}}
 	local net_internal_addr=""
@@ -969,10 +969,10 @@ enable_u2up_target_hostname_selection() {
 }
 
 #
-# Enable U2UP configured target administrator.
+# Configure U2UP defined target administrator.
 # (called only chrooted during installation / upgrade)	
 #
-enable_u2up_target_admin_selection() {
+configure_u2up_target_admin_selection() {
 	local rv=1
 	local conf_dir=${1:-${U2UP_CONF_DIR}}
 
@@ -1018,74 +1018,6 @@ enable_u2up_target_admin_selection() {
 	return $rv
 }
 
-#
-# Enable U2UP mac naming policy for eth devices.
-# (called only chrooted during installation / upgrade)
-#
-enable_u2up_mac_naming_eth_policy() {
-	local rv=0
-	local naming_policy_file="/lib/systemd/network/99-default.link"
-
-	if [ ! -f "${naming_policy_file}" ]; then
-		msg="Missing default network naming policy configuration file!"
-		rv=1
-	fi
-	if [ $rv -eq 0 ]; then
-		sed -i 's/NamePolicy=.*/NamePolicy=kernel mac database onboard slot path/' ${naming_policy_file}
-		rv=$?
-		if [ $rv -ne 0 ]; then
-			msg="Failed to change default naming policy file!"
-		fi
-	fi
-	if [ $rv -ne 0 ]; then
-		echo "${msg}" >&2
-	fi
-	return $rv
-}
-
-#
-# Enable U2UP configured SW packages repository.
-# (called from "upgrade" installer and chrooted during installation / upgrade)
-#
-enable_u2up_install_repo_selection() {
-	local rv=0
-	local conf_dir=${1:-${U2UP_CONF_DIR}}
-
-	if [ ! -f "${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
-		return 1
-	fi
-	source ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}
-#	if [ $TARGET_DONE -eq 0 ]; then
-		if [ -n "${u2up_INSTALL_REPO_BASE_URL}" ]; then
-			mkdir -p /etc/yum.repos.d
-			(( rv+=$? ))
-			echo "[base-repo]" > /etc/yum.repos.d/base.repo
-			(( rv+=$? ))
-			echo "name=Base installation repository" >> /etc/yum.repos.d/base.repo
-			(( rv+=$? ))
-			echo "baseurl=${u2up_INSTALL_REPO_BASE_URL}" >> /etc/yum.repos.d/base.repo
-			(( rv+=$? ))
-			echo "enabled=1" >> /etc/yum.repos.d/base.repo
-			(( rv+=$? ))
-			echo "metadata_expire=0" >> /etc/yum.repos.d/base.repo
-			(( rv+=$? ))
-			echo "gpgcheck=0" >> /etc/yum.repos.d/base.repo
-			(( rv+=$? ))
-#			set_target_done_for ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE} ${new_target_done}
-#			rv=$?
-		else
-			rm -rf /etc/yum.repos.d
-			rv=$?
-		fi
-#	fi
-	return $rv
-}
-
-############################################################
-#                                                          #
-# MISC functions of the U2UP configuration / installation! #
-#                                                          #
-############################################################
 #
 # Configure U2UP defined network segment.
 # (called chrooted during installation / upgrade)
@@ -1199,6 +1131,74 @@ EOF
 		rv=$?
 		if [ $rv -ne 0 ]; then
 			msg="Failed to set file permissions for \"NetworkManager\" U2UP network segment configuration!"
+		fi
+	fi
+	if [ $rv -ne 0 ]; then
+		echo "${msg}" >&2
+	fi
+	return $rv
+}
+
+#
+# Configure U2UP defined SW packages repository.
+# (called from "upgrade" installer and chrooted during installation / upgrade)
+#
+configure_u2up_install_repo_selection() {
+	local rv=0
+	local conf_dir=${1:-${U2UP_CONF_DIR}}
+
+	if [ ! -f "${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}" ]; then
+		return 1
+	fi
+	source ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE}
+#	if [ $TARGET_DONE -eq 0 ]; then
+		if [ -n "${u2up_INSTALL_REPO_BASE_URL}" ]; then
+			mkdir -p /etc/yum.repos.d
+			(( rv+=$? ))
+			echo "[base-repo]" > /etc/yum.repos.d/base.repo
+			(( rv+=$? ))
+			echo "name=Base installation repository" >> /etc/yum.repos.d/base.repo
+			(( rv+=$? ))
+			echo "baseurl=${u2up_INSTALL_REPO_BASE_URL}" >> /etc/yum.repos.d/base.repo
+			(( rv+=$? ))
+			echo "enabled=1" >> /etc/yum.repos.d/base.repo
+			(( rv+=$? ))
+			echo "metadata_expire=0" >> /etc/yum.repos.d/base.repo
+			(( rv+=$? ))
+			echo "gpgcheck=0" >> /etc/yum.repos.d/base.repo
+			(( rv+=$? ))
+#			set_target_done_for ${conf_dir}/${U2UP_INSTALL_REPO_CONF_FILE} ${new_target_done}
+#			rv=$?
+		else
+			rm -rf /etc/yum.repos.d
+			rv=$?
+		fi
+#	fi
+	return $rv
+}
+
+############################################################
+#                                                          #
+# MISC functions of the U2UP configuration / installation! #
+#                                                          #
+############################################################
+#
+# Configure U2UP enforced mac naming policy for eth devices.
+# (called only chrooted during installation / upgrade)
+#
+configure_u2up_mac_naming_eth_policy() {
+	local rv=0
+	local naming_policy_file="/lib/systemd/network/99-default.link"
+
+	if [ ! -f "${naming_policy_file}" ]; then
+		msg="Missing default network naming policy configuration file!"
+		rv=1
+	fi
+	if [ $rv -eq 0 ]; then
+		sed -i 's/NamePolicy=.*/NamePolicy=kernel mac database onboard slot path/' ${naming_policy_file}
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to change default naming policy file!"
 		fi
 	fi
 	if [ $rv -ne 0 ]; then
@@ -2361,29 +2361,29 @@ evaluate_u2up_configurations() {
 	for file in $(ls ${U2UP_CONF_DIR}); do
 		case $file in
 		${U2UP_KEYMAP_CONF_FILE})
-#			enable_u2up_keymap_selection
+#			configure_u2up_keymap_selection
 #			rv=$?
 			;;
 		${U2UP_TARGET_DISK_CONF_FILE})
 			;;
 		${U2UP_TARGET_HOSTNAME_CONF_FILE})
-#			enable_u2up_target_hostname_selection
+#			configure_u2up_target_hostname_selection
 #			rv=$?
 			;;
 		${U2UP_TARGET_ADMIN_CONF_FILE})
-#			enable_u2up_target_admin_selection
+#			configure_u2up_target_admin_selection
 #			rv=$?
 			;;
 		${U2UP_NETWORK_EXTERNAL_CONF_FILE})
-#			enable_u2up_net_external_config_selection
+#			configure_u2up_net_segment ${U2UP_CONF_DIR} External
 #			rv=$?
 			;;
 		${U2UP_NETWORK_INTERNAL_CONF_FILE})
-#			enable_u2up_net_internal_config_selection
+#			configure_u2up_net_segment ${U2UP_CONF_DIR} Internal
 #			rv=$?
 			;;
 		${U2UP_INSTALL_REPO_CONF_FILE})
-#			enable_u2up_install_repo_selection
+#			configure_u2up_install_repo_selection
 #			rv=$?
 			;;
 		esac

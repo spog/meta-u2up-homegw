@@ -87,7 +87,7 @@ fi
 echo "Successfully created new boot \"${current_root_part_label}\" menu entry!" >&2
 
 echo "Configuring target keyboard mapping..." >&2
-enable_u2up_keymap_selection
+configure_u2up_keymap_selection
 if [ $? -ne 0 ]; then
 	echo "Failed to configure target keyboard mapping!" >&2
 	exit 1
@@ -95,7 +95,7 @@ fi
 echo "Successfully configured target keyboard mapping!" >&2
 
 echo "Configuring target hostname..." >&2
-enable_u2up_target_hostname_selection
+configure_u2up_target_hostname_selection
 if [ $? -ne 0 ]; then
 	echo "Failed to configure target hostname!" >&2
 	exit 1
@@ -103,7 +103,7 @@ fi
 echo "Successfully configured target hostname!" >&2
 
 echo "Configuring target admin..." >&2
-enable_u2up_target_admin_selection
+configure_u2up_target_admin_selection
 if [ $? -ne 0 ]; then
 	echo "Failed to configure target admin!" >&2
 	exit 1
@@ -135,7 +135,7 @@ echo "Successfully configured \"fstab\" for common logging partition!" >&2
 #echo "Successfully set \"done\" configuring target disk and partitions!" >&2
 
 echo "Configuring \"mac\" naming policy for eth devices of the installed system..." >&2
-enable_u2up_mac_naming_eth_policy
+configure_u2up_mac_naming_eth_policy
 if [ $? -ne 0 ]; then
 	echo "Failed to configure \"mac\" naming policy for eth devices of the installed system!" >&2
 	exit 1
@@ -175,7 +175,7 @@ fi
 echo "Successfully configured U2UP required services of the installed system!" >&2
 
 echo "Configuring SW packages repository for the installed system..." >&2
-enable_u2up_install_repo_selection
+configure_u2up_install_repo_selection
 if [ $? -ne 0 ]; then
 	echo "Failed to configure SW packages repositoey for the installed system!" >&2
 	exit 1
