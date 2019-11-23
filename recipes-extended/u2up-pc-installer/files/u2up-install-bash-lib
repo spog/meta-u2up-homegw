@@ -1243,6 +1243,74 @@ configure_u2up_required_services() {
 	net_internal_addr=$(echo -n "${u2up_NET_INTERNAL_ADDR_MASK}" | sed 's|\/.*||g')
 	net_home_addr=$(echo -n "${u2up_NET_HOME_ADDR_MASK}" | sed 's|\/.*||g')
 	if [ $rv -eq 0 ]; then
+		echo "Preparing default \"firewalld\" service zones configuration..." >&2
+		mkdir -p /etc/firewalld/zones
+		rv=$?
+		if [ $rv -eq 0 ]; then
+			cat > /etc/firewalld/zones/external.xml << EOF
+<?xml version="1.0" encoding="utf-8"?>
+<zone>
+  <short>External</short>
+  <description>For use on external networks. You do not trust the other computers on networks to not harm your computer. Only selected incoming connections are accepted.</description>
+  <service name="http"/>
+  <service name="https"/>
+  <service name="smtp"/>
+  <masquerade/>
+</zone>
+EOF
+			rv=$?
+			cat > /etc/firewalld/zones/internal.xml << EOF
+<?xml version="1.0" encoding="utf-8"?>
+<zone>
+  <short>Internal</short>
+  <description>For use on internal networks. You mostly trust the other computers on the networks to not harm your computer. Only selected incoming connections are accepted.</description>
+  <service name="ssh"/>
+  <service name="mdns"/>
+  <service name="samba-client"/>
+  <service name="dhcpv6-client"/>
+  <service name="http"/>
+  <service name="dhcp"/>
+  <service name="dns"/>
+  <service name="https"/>
+  <service name="smtp"/>
+  <service name="imap"/>
+</zone>
+EOF
+			(( rv+=$? ))
+			cat > /etc/firewalld/zones/home.xml << EOF
+<?xml version="1.0" encoding="utf-8"?>
+<zone>
+  <short>Home</short>
+  <description>For use in home areas. You mostly trust the other computers on the networks to not harm your computer. Only selected incoming connections are accepted.</description>
+  <service name="ssh"/>
+  <service name="mdns"/>
+  <service name="samba-client"/>
+  <service name="dhcpv6-client"/>
+  <service name="http"/>
+  <service name="dhcp"/>
+  <service name="dns"/>
+  <service name="https"/>
+  <service name="smtp"/>
+  <service name="imap"/>
+</zone>
+EOF
+			(( rv+=$? ))
+		fi
+		if [ $rv -ne 0 ]; then
+			msg="Failed to prepare default \"firewalld\" service zones configuration!"
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "Enabling \"firewalld\" service..." >&2
+		systemctl enable firewalld.service
+		rv=$?
+		if [ $rv -ne 0 ]; then
+			msg="Failed to enable \"firewalld\" service!"
+		else
+			echo "Successfully enabled \"firewalld\" service!" >&2
+		fi
+	fi
+	if [ $rv -eq 0 ]; then
 		echo "Enabling \"IPv4 forwarding\"..." >&2
 		if [ -f "/etc/sysctl.conf" ]; then
 			sed -i 's|.*net.ipv4.ip_forward=.*|net.ipv4.ip_forward=1|' /etc/sysctl.conf
