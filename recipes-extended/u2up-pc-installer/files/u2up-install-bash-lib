@@ -1401,109 +1401,166 @@ EOF
 		if [ $rv -eq 0 ]; then
 			cat > /etc/dnsmasq.conf << EOF
 #/etc/dnsmasq.conf
-domain-needed
-bogus-priv
-no-resolv
 
-expand-hosts
-domain=${u2up_LOCAL_DOMAIN}
-local=/${u2up_LOCAL_DOMAIN}/
-
+# Listen on the given IP address(es).
 listen-address=127.0.0.1
 EOF
-			if [ -n "${net_internal_addr}" ]; then
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				msg="Failed to write common dnsmasq.conf (listen-address=127.0.0.1)!"
+			fi
+			if [ $rv -eq 0 ] && [ -n "${net_internal_addr}" ]; then
 				cat >> /etc/dnsmasq.conf << EOF
 listen-address=${net_internal_addr}
 EOF
 				rv=$?
 				if [ $rv -ne 0 ]; then
-					msg="Failed to write common dnsmasq.conf!"
+					msg="Failed to write common dnsmasq.conf (listen-address=${net_internal_addr})!"
 				fi
 			fi
-			if [ -n "${net_home_addr}" ]; then
+			if [ $rv -eq 0 ] && [ -n "${net_home_addr}" ]; then
 				cat >> /etc/dnsmasq.conf << EOF
 listen-address=${net_home_addr}
+
 EOF
 				rv=$?
 				if [ $rv -ne 0 ]; then
-					msg="Failed to write common dnsmasq.conf!"
+					msg="Failed to write common dnsmasq.conf (listen-address=${net_home_addr})!"
 				fi
 			fi
-		cat >> /etc/dnsmasq.conf << EOF
+			if [ $rv -eq 0 ]; then
+				cat >> /etc/dnsmasq.conf << EOF
+# On systems which support it, dnsmasq binds the wildcard address,
+# even when it is listening on only some interfaces.
 bind-interfaces
 
-servers-file=/srv/etc/dnsmasq_servers
-addn-hosts=/srv/etc/dnsmasq_addn-hosts
-dhcp-hostsfile=/srv/etc/dnsmasq_dhcp-hosts
-dhcp-optsfile=/srv/etc/dnsmasq_dhcp-opts
+# Add the domain to simple names.
+expand-hosts
 
-conf-dir=/srv/etc/dnsmasq.d,*.conf
+# Bogus private reverse lookups.
+bogus-priv
+
+# Don't read /etc/resolv.conf.
+no-resolv
+
+# Tells dnsmasq to never forward A or AAAA queries for plain names.
+domain-needed
+
 EOF
-			rv=$?
-			if [ $rv -ne 0 ]; then
-				msg="Failed to write common dnsmasq.conf!"
+				rv=$?
+				if [ $rv -ne 0 ]; then
+					msg="Failed to write common dnsmasq.conf (bind-interfaces...)!"
+				fi
+			fi
+			if [ $rv -eq 0 ] && [ -n "${u2up_LOCAL_DOMAIN}" ]; then
+				cat >> /etc/dnsmasq.conf << EOF
+# Synonym for "server": without IP prevents forwarding.
+local=/${u2up_LOCAL_DOMAIN}/
+
+EOF
+				rv=$?
+				if [ $rv -ne 0 ]; then
+					msg="Failed to write common dnsmasq.conf (local=/${u2up_LOCAL_DOMAIN}/)!"
+				fi
+			fi
+			if [ $rv -eq 0 ] && [ -n "${u2up_FORWARD_DNS1}" ]; then
+				cat >> /etc/dnsmasq.conf << EOF
+# Specify IP address of upstream servers directly. Setting this flag does
+# not suppress reading of /etc/resolv.conf, use --no-resolv to do that.
+server=${u2up_FORWARD_DNS1}
+EOF
+				rv=$?
+				if [ $rv -ne 0 ]; then
+					msg="Failed to write common dnsmasq.conf (local=/${u2up_FORWARD_DNS1}/)!"
+				fi
+			fi
+			if [ $rv -eq 0 ] && [ -n "${u2up_FORWARD_DNS2}" ]; then
+				cat >> /etc/dnsmasq.conf << EOF
+server=${u2up_FORWARD_DNS2}
+
+EOF
+				rv=$?
+				if [ $rv -ne 0 ]; then
+					msg="Failed to write common dnsmasq.conf (local=/${u2up_FORWARD_DNS2}/)!"
+				fi
+			fi
+			if [ $rv -eq 0 ]; then
+				cat >> /etc/dnsmasq.conf << EOF
+# Additional hosts file. Read the specified file as well as /etc/hosts.
+addn-hosts=/srv/etc/dnsmasq/addn-hosts
+
+# Specify a different configuration file. The --conf-file option is also
+# allowed in configuration files, to include multiple configuration files.
+# DHCP ranges actually enable DHCP server in dnsmasq.
+conf-file=/srv/etc/dnsmasq/dhcp-ranges
+
+# Should be set when dnsmasq is definitely the only DHCP server on a network.
+dhcp-authoritative
+
+EOF
+				rv=$?
+				if [ $rv -ne 0 ]; then
+					msg="Failed to write common dnsmasq.conf (addn-hosts=...)!"
+				fi
+			fi
+			if [ $rv -eq 0 ] && [ -n "${u2up_LOCAL_DOMAIN}" ]; then
+				cat >> /etc/dnsmasq.conf << EOF
+# Specifies DNS domains for the DHCP server.
+domain=${u2up_LOCAL_DOMAIN}
+
+EOF
+				rv=$?
+				if [ $rv -ne 0 ]; then
+					msg="Failed to write common dnsmasq.conf (domain=${u2up_LOCAL_DOMAIN})!"
+				fi
+			fi
+			if [ $rv -eq 0 ]; then
+				cat >> /etc/dnsmasq.conf << EOF
+# Read DHCP host information from the specified file.
+dhcp-hostsfile=/srv/etc/dnsmasq/dhcp-hosts
+
+# Read DHCP option information from the specified file.
+dhcp-optsfile=/srv/etc/dnsmasq/dhcp-opts
+
+EOF
+				rv=$?
+				if [ $rv -ne 0 ]; then
+					msg="Failed to write common dnsmasq.conf (dhcp-hostsfile=...)!"
+				fi
 			fi
 		fi
 	fi
 	if [ $rv -eq 0 ]; then
 		echo "Preparing specific \"dnsmasq\" service configuration..." >&2
-		mkdir -p /srv/etc/dnsmasq.d
+		mkdir -p /srv/etc/dnsmasq
 		rv=$?
 		if [ $rv -ne 0 ]; then
-			msg="Failed to make directory /srv/etc/dnsmasq.d!"
+			msg="Failed to make directory /srv/etc/dnsmasq!"
 		fi
 		if [ $rv -eq 0 ]; then
-			if [ -n "${u2up_NET_EXTERNAL_DNS1}" ]; then
-				cat > /srv/etc/dnsmasq.d/10-servers.conf << EOF
-#/srv/etc/dnsmasq.d/10-servers.conf
-server=${u2up_NET_EXTERNAL_DNS1}
-EOF
-				rv=$?
-				if [ $rv -ne 0 ]; then
-					msg="Failed to write dnsmasq.d/10-servers.conf!"
-				fi
-			fi
-			if [ -n "${u2up_NET_EXTERNAL_DNS2}" ]; then
-				cat >> /srv/etc/dnsmasq.d/10-servers.conf << EOF
-server=${u2up_NET_EXTERNAL_DNS2}
-EOF
-				rv=$?
-				if [ $rv -ne 0 ]; then
-					msg="Failed to write dnsmasq.d/10-servers.conf!"
-				fi
-			fi
-		fi
-		if [ $rv -eq 0 ]; then
-			if [ -f "${U2UP_TMP_SRV_DIR}/etc/dnsmasq_servers" ]; then
-				cp -p ${U2UP_TMP_SRV_DIR}/etc/dnsmasq_servers /srv/etc/
+			if [ -f "${U2UP_TMP_SRV_DIR}/etc/dnsmasq/addn-hosts" ]; then
+				cp -p ${U2UP_TMP_SRV_DIR}/etc/dnsmasq/addn-hosts /srv/etc/dnsmasq/
 				(( rv+=$? ))
 			else
-				touch /srv/etc/dnsmasq_servers
+				touch /srv/etc/dnsmasq/addn-hosts
 				(( rv+=$? ))
 			fi
-			if [ -f "${U2UP_TMP_SRV_DIR}/etc/dnsmasq_addn-hosts" ]; then
-				cp -p ${U2UP_TMP_SRV_DIR}/etc/dnsmasq_addn-hosts /srv/etc/
+			if [ -f "${U2UP_TMP_SRV_DIR}/etc/dnsmasq/dhcp-hosts" ]; then
+				cp -p ${U2UP_TMP_SRV_DIR}/etc/dnsmasq/dhcp-hosts /srv/etc/dnsmasq/
 				(( rv+=$? ))
 			else
-				touch /srv/etc/dnsmasq_addn-hosts
+				touch /srv/etc/dnsmasq/dhcp-hosts
 				(( rv+=$? ))
 			fi
-			if [ -f "${U2UP_TMP_SRV_DIR}/etc/dnsmasq_dhcp-hosts" ]; then
-				cp -p ${U2UP_TMP_SRV_DIR}/etc/dnsmasq_dhcp-hosts /srv/etc/
+			if [ -f "${U2UP_TMP_SRV_DIR}/etc/dnsmasq/dhcp-opts" ]; then
+				cp -p ${U2UP_TMP_SRV_DIR}/etc/dnsmasq/dhcp-opts /srv/etc/dnsmasq/
 				(( rv+=$? ))
 			else
-				touch /srv/etc/dnsmasq_dhcp-hosts
+				touch /srv/etc/dnsmasq/dhcp-opts
 				(( rv+=$? ))
 			fi
-			if [ -f "${U2UP_TMP_SRV_DIR}/etc/dnsmasq_dhcp-opts" ]; then
-				cp -p ${U2UP_TMP_SRV_DIR}/etc/dnsmasq_dhcp-opts /srv/etc/
-				(( rv+=$? ))
-			else
-				touch /srv/etc/dnsmasq_dhcp-opts
-				(( rv+=$? ))
-			fi
-			if [ -f "${U2UP_TMP_SRV_DIR}/etc/dnsmasq.d/30-dhcp-ranges.conf" ]; then
-				cp -p ${U2UP_TMP_SRV_DIR}/etc/dnsmasq.d/30-dhcp-ranges.conf /srv/etc/dnsmasq.d/
+			if [ -f "${U2UP_TMP_SRV_DIR}/etc/dnsmasq/dhcp-ranges" ]; then
+				cp -p ${U2UP_TMP_SRV_DIR}/etc/dnsmasq/dhcp-ranges /srv/etc/dnsmasq/
 				(( rv+=$? ))
 			fi
 			if [ $rv -ne 0 ]; then
