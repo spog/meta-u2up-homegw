@@ -1,4 +1,4 @@
-U2UP_ADDONS_LAYERS="u2up-homegw meta-u2up-cockpit meta-u2up-firewalld meta-oe meta-python meta-networking meta-webserver"
+U2UP_ADDONS_LAYERS="u2up-homegw meta-u2up-cockpit meta-u2up-firewalld meta-u2up-acmesh meta-oe meta-python meta-networking meta-webserver"
 
 u2up_homegw_LAYER_NAME="u2up-homegw"
 u2up_homegw_LAYER_REPO="u2up-homegw"
@@ -11,6 +11,10 @@ meta_u2up_cockpit_LAYER_PATH=""
 meta_u2up_firewalld_LAYER_NAME="meta-u2up-firewalld"
 meta_u2up_firewalld_LAYER_REPO="meta-u2up-firewalld"
 meta_u2up_firewalld_LAYER_PATH=""
+
+meta_u2up_acmesh_LAYER_NAME="meta-u2up-acmesh"
+meta_u2up_acmesh_LAYER_REPO="meta-u2up-acmesh"
+meta_u2up_acmesh_LAYER_PATH="../u2up/meta-u2up-acmesh"
 
 meta_oe_LAYER_NAME="meta-oe"
 meta_oe_LAYER_REPO="meta-openembedded"
