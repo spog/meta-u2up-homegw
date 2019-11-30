@@ -992,7 +992,7 @@ configure_u2up_target_admin_selection() {
 	source ${conf_dir}/${U2UP_TARGET_ADMIN_CONF_FILE}
 #	if [ -n "$u2up_TARGET_ADMIN_NAME" ] && [ $TARGET_DONE -eq 0 ]; then
 	if [ -n "$u2up_TARGET_ADMIN_NAME" ]; then
-		useradd -m -c "Admin User" $u2up_TARGET_ADMIN_NAME
+		useradd -u 1000 -U -m -c "Admin User" $u2up_TARGET_ADMIN_NAME
 		rv=$?
 		if [ $rv -ne 0 ] && [ $rv -ne 9 ]; then
 			return 1
