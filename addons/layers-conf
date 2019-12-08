@@ -14,7 +14,7 @@ meta_u2up_firewalld_LAYER_PATH=""
 
 meta_u2up_acmesh_LAYER_NAME="meta-u2up-acmesh"
 meta_u2up_acmesh_LAYER_REPO="meta-u2up-acmesh"
-meta_u2up_acmesh_LAYER_PATH="../u2up/meta-u2up-acmesh"
+meta_u2up_acmesh_LAYER_PATH=""
 
 meta_oe_LAYER_NAME="meta-oe"
 meta_oe_LAYER_REPO="meta-openembedded"

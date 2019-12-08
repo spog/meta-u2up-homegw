@@ -780,57 +780,6 @@ display_target_partsizes_submenu() {
 	done
 }
 
-display_install_repo_config_submenu() {
-	local current_set=""
-	local current_item=""
-	local install_repo_base_url_current=${1:-"http://192.168.1.113:5678"}
-	local rv=1
-
-	check_install_repo_config_set
-	rv=$?
-	if [ $rv -ne 0 ]; then
-		return $rv
-	fi
-
-	while true; do
-		exec 3>&1
-		selection=$(IFS='|'; \
-		dialog \
-			--backtitle "${U2UP_BACKTITLE}" \
-			--title "Installation packages repo" \
-			--clear \
-			--default-item "$current_item" \
-			--cancel-label "Cancel" \
-			--extra-label "Change" \
-			--cr-wrap \
-			--inputmenu "\nPlease set:" $HEIGHT 0 12 \
-			"Base URL:" ${install_repo_base_url_current} \
-		2>&1 >&3)
-		exit_status=$?
-		exec 3>&-
-
-		case $exit_status in
-		$DIALOG_CANCEL|$DIALOG_ESC)
-			clear
-			echo "Return from submenu." >&2
-			return 1
-			;;
-		esac
-
-		current_item="$(get_item_selection $selection)"
-		current_set="$(save_u2up_install_repo_selection ${U2UP_INSTALL_CONF_DIR} $selection)"
-		if [ -n "$current_set" ]; then
-			#Resize pressed: set new dialog values
-			eval $current_set
-		else
-			#Ok
-			save_u2up_install_repo_selection ${U2UP_INSTALL_CONF_DIR} "Base URL: ${install_repo_base_url_current}"
-			(( rv+=$? ))
-			return $rv
-		fi
-	done
-}
-
 get_prepare_images_bundle() {
 	local rv=0
 	local msg_warn=
@@ -1093,7 +1042,7 @@ main_loop () {
 			--clear \
 			--cancel-label "Exit" \
 			--default-item $current_tag \
-			--menu "Please select:" $HEIGHT $WIDTH 18 \
+			--menu "Please select:" $HEIGHT $WIDTH 19 \
 			"1" "Keyboard mapping [${u2up_KEYMAP}]" \
 			"2" "Target disk [${u2up_TARGET_DISK}]" \
 			"3" "Disk partitions \
@@ -1110,12 +1059,13 @@ main_loop () {
 			"10" "Static network internal configuration [${u2up_NET_INTERNAL_ADDR_MASK}]" \
 			"11" "Static network home configuration [${u2up_NET_HOME_ADDR_MASK}]" \
 			"12" "Local Domain [${u2up_LOCAL_DOMAIN}]" \
-			"13" "Installation packages repo [${u2up_INSTALL_REPO_BASE_URL}]" \
-			"14" "Installation partition [${u2up_TARGET_PART} - ${root_part_label}]" \
-			"15" "Get new images bundle" \
-			"16" "Install (${U2UP_IMAGE_ROOTFS_DATETIME})" \
-			"17" "Default boot [${default_boot_label}]" \
-			"18" "Reboot" \
+			"13" "Acme account email [${u2up_ACME_ACCOUNT_EMAIL}]" \
+			"14" "Installation packages repo [${u2up_INSTALL_REPO_BASE_URL}]" \
+			"15" "Installation partition [${u2up_TARGET_PART} - ${root_part_label}]" \
+			"16" "Get new images bundle" \
+			"17" "Install (${U2UP_IMAGE_ROOTFS_DATETIME})" \
+			"18" "Default boot [${default_boot_label}]" \
+			"19" "Reboot" \
 		2>&1 >&3)
 		exit_status=$?
 		exec 3>&-
@@ -1264,6 +1214,18 @@ main_loop () {
 			fi
 			;;
 		13)
+			local acme_account_email_old=$u2up_ACME_ACCOUNT_EMAIL
+			display_acme_account_email_submenu \
+				$u2up_ACME_ACCOUNT_EMAIL
+			rv=$?
+			if [ $rv -ne 0 ]; then
+				# Restore old acme account email configuration
+				if [ -n "${acme_account_email_old}" ]; then
+					save_u2up_acme_account_email_selection ${U2UP_INSTALL_CONF_DIR} "Acme Account Email: ${acme_account_email_old}"
+				fi
+			fi
+			;;
+		14)
 			local install_repo_base_url_old=$u2up_INSTALL_REPO_BASE_URL
 			display_install_repo_config_submenu \
 				$u2up_INSTALL_REPO_BASE_URL
@@ -1277,12 +1239,12 @@ main_loop () {
 				configure_u2up_install_repo_selection
 			fi
 			;;
-		14)
+		15)
 			display_target_part_submenu \
 				$u2up_TARGET_DISK \
 				$u2up_TARGET_PART
 			;;
-		15)
+		16)
 			check_install_repo_config_set
 			if [ $? -eq 0 ]; then
 				get_prepare_images_bundle
@@ -1292,15 +1254,15 @@ main_loop () {
 			fi
 
 			;;
-		16)
+		17)
 			execute_target_install
 			default_boot_label="$(get_default_boot_label ${U2UP_CURRENT_TARGET_DISK})"
 			;;
-		17)
+		18)
 			display_target_boot_submenu
 			default_boot_label="$(get_default_boot_label ${U2UP_CURRENT_TARGET_DISK})"
 			;;
-		18)
+		19)
 			display_yesno "Reboot" \
 				"You are about to reboot the system!\n\nDo you want to continue?" 7
 			if [ $? -eq 0 ]; then

@@ -39,7 +39,7 @@ IMAGE_INSTALL = "\
     gdb \
     bind-utils \
     curl \
-    acmeuser \
+    acmesh \
     "
 
 #SYSTEMD_DEFAULT_TARGET = "u2up-pre-config.target"

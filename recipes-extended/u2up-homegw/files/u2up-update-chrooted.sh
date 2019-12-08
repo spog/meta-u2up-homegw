@@ -174,6 +174,15 @@ if [ $? -ne 0 ]; then
 fi
 echo "Successfully configured U2UP required services of the installed system!" >&2
 
+echo "Installing "acme.sh" for the "acme" user of the installed system..." >&2
+#su -l acme /usr/share/acme/acmesh-install.sh ${u2up_ACME_ACCOUNT_EMAIL} >&2
+configure_u2up_acme_account_selection
+if [ $? -ne 0 ]; then
+	echo "Failed to install "acme.sh" for the "acme" user of the installed system!" >&2
+	exit 1
+fi
+echo "Successfully installed "acme.sh" for the "acme" user of the installed system..." >&2
+
 echo "Configuring SW packages repository for the installed system..." >&2
 configure_u2up_install_repo_selection
 if [ $? -ne 0 ]; then

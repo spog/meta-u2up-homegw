@@ -18,7 +18,7 @@ meta_u2up_firewalld_REPO_VERSION="23b1a253d4d690a2a32197dbba7b6e3edf905605"
 
 # Repo: meta-u2up-acmesh
 meta_u2up_acmesh_REPO_NAME="meta-u2up-acmesh"
-meta_u2up_acmesh_REPO_URL=""
-meta_u2up_acmesh_REPO_BRANCH=""
-meta_u2up_acmesh_REPO_VERSION=""
+meta_u2up_acmesh_REPO_URL="https://github.com/spog/meta-u2up-acmesh.git"
+meta_u2up_acmesh_REPO_BRANCH="master"
+meta_u2up_acmesh_REPO_VERSION="115329120d01ec291dc2984454f222a62d1b2c02"
 

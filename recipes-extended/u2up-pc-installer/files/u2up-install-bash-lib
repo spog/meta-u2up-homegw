@@ -27,6 +27,7 @@ U2UP_NETWORK_INTERNAL_CONF_FILE="60-network_internal-conf"
 U2UP_NETWORK_HOME_CONF_FILE="65-network_home-conf"
 U2UP_INSTALL_REPO_CONF_FILE="70-install_repo-conf"
 U2UP_DOMAIN_CONF_FILE="80-domain-conf"
+U2UP_ACME_ACCOUNT_CONF_FILE="90-acme_account-conf"
 
 # Use common partition to download images bundle:
 U2UP_IMAGES_DIR="/var/log/u2up-images"
@@ -77,6 +78,7 @@ move_and_sort() {
 		rm -f $1
 		rv=$?
 	fi
+	sed -i '/^$/d' $2
 	return $rv
 }
 
@@ -914,6 +916,57 @@ save_u2up_local_domain_selection() {
 	return $rv
 }
 
+save_u2up_acme_account_email_selection() {
+	local rv=1
+	local var_acme_account_set=""
+	local var_acme_account_current=""
+	local conf_dir=${1}
+	shift
+	local value="$(echo $@ | sed 's/[^:]*://' | sed 's/ *//')"
+	local name="$(echo $@ | sed 's/RENAMED //' | sed 's/:.*//')"
+
+	if [ ! -d "${conf_dir}" ]; then
+		return 1
+	fi
+	if [ -z "${value}" ] || [ "x${name}" = "x${value}" ]; then
+		return 0
+	fi
+	case $name in
+	"Email")
+		var_acme_account_set=u2up_ACME_ACCOUNT_EMAIL
+		var_acme_account_current=acme_account_email_current
+		;;
+	*)
+		return 1;
+	esac
+
+	if [ -f "${conf_dir}/${U2UP_ACME_ACCOUNT_CONF_FILE}" ]; then
+		if [ -n "$(tail -n1 ${conf_dir}/${U2UP_ACME_ACCOUNT_CONF_FILE})" ]; then
+			echo >> ${conf_dir}/${U2UP_ACME_ACCOUNT_CONF_FILE}
+		fi
+		cat ${conf_dir}/${U2UP_ACME_ACCOUNT_CONF_FILE} | grep -v "${var_acme_account_set}=" > ${conf_dir}/${U2UP_ACME_ACCOUNT_CONF_FILE}_tmp
+		rv=$?
+	else
+		> ${conf_dir}/${U2UP_ACME_ACCOUNT_CONF_FILE}_tmp
+		rv=$?
+	fi
+	if [ $rv -eq 0 ]; then
+		if [ "${value}" = "none" ]; then
+			value=""
+		fi
+		echo "local ${var_acme_account_set}=$value" >> ${conf_dir}/${U2UP_ACME_ACCOUNT_CONF_FILE}_tmp
+		rv=$?
+	fi
+	if [ $rv -eq 0 ]; then
+		move_and_sort ${conf_dir}/${U2UP_ACME_ACCOUNT_CONF_FILE}_tmp ${conf_dir}/${U2UP_ACME_ACCOUNT_CONF_FILE}
+		rv=$?
+	fi
+	if [ $rv -eq 0 ]; then
+		echo "${var_acme_account_current}=${value}"
+	fi
+	return $rv
+}
+
 ############################################
 #                                          #
 # CONFIGURE functions for U2UP parameters! #
@@ -1146,6 +1199,23 @@ EOF
 	if [ $rv -ne 0 ]; then
 		echo "${msg}" >&2
 	fi
+	return $rv
+}
+
+#
+# Configure U2UP defined "acme.sh".
+# (called from only chrooted during installation / upgrade)
+#
+configure_u2up_acme_account_selection() {
+	local rv=0
+	local conf_dir=${1:-${U2UP_CONF_DIR}}
+
+	if [ ! -f "${conf_dir}/${U2UP_ACME_ACCOUNT_CONF_FILE}" ]; then
+		return 1
+	fi
+	source ${conf_dir}/${U2UP_ACME_ACCOUNT_CONF_FILE}
+	su -l acme /usr/share/acme/acmesh-install.sh ${u2up_ACME_ACCOUNT_EMAIL} >&2
+	rv=$?
 	return $rv
 }
 
@@ -2817,6 +2887,10 @@ prepare_u2up_upgrade_configuration() {
 	fi
 	if [ ! -e "${conf_dir}/${U2UP_DOMAIN_CONF_FILE}" ]; then
 		cp -pf ${U2UP_CONF_DIR}/${U2UP_DOMAIN_CONF_FILE} ${conf_dir}/
+		(( rv+=$? ))
+	fi
+	if [ ! -e "${conf_dir}/${U2UP_ACME_ACCOUNT_CONF_FILE}" ]; then
+		cp -pf ${U2UP_CONF_DIR}/${U2UP_ACME_ACCOUNT_CONF_FILE} ${conf_dir}/
 		(( rv+=$? ))
 	fi
 	return $rv

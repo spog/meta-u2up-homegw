@@ -448,3 +448,98 @@ display_local_domain_submenu() {
 	done
 }
 
+display_acme_account_email_submenu() {
+	local current_set=""
+	local current_item=""
+	local acme_account_email_current=${1:-"none"}
+	local rv=1
+
+	while true; do
+		exec 3>&1
+		selection=$(IFS='|'; \
+		dialog \
+			--backtitle "${U2UP_BACKTITLE}" \
+			--title "Acme Account Email" \
+			--clear \
+			--default-item "$current_item" \
+			--cancel-label "Cancel" \
+			--extra-label "Change" \
+			--cr-wrap \
+			--inputmenu "\nPlease set:" $HEIGHT 0 12 \
+			"Email:" ${acme_account_email_current} \
+		2>&1 >&3)
+		exit_status=$?
+		exec 3>&-
+
+		case $exit_status in
+		$DIALOG_CANCEL|$DIALOG_ESC)
+			clear
+			echo "Return from submenu." >&2
+			return 1
+			;;
+		esac
+		current_item="$(get_item_selection $selection)"
+		current_set="$(save_u2up_acme_account_email_selection ${U2UP_INSTALL_CONF_DIR} $selection)"
+		if [ -n "$current_set" ]; then
+			#Resize pressed: set new dialog values
+			eval $current_set
+		else
+			#Ok
+			save_u2up_acme_account_email_selection ${U2UP_INSTALL_CONF_DIR} "Email: ${acme_account_email_current}"
+			(( rv+=$? ))
+			return $rv
+		fi
+	done
+}
+
+display_install_repo_config_submenu() {
+	local current_set=""
+	local current_item=""
+	local install_repo_base_url_current=${1:-"http://192.168.1.113:5678"}
+	local rv=1
+
+	check_install_repo_config_set
+	rv=$?
+	if [ $rv -ne 0 ]; then
+		return $rv
+	fi
+
+	while true; do
+		exec 3>&1
+		selection=$(IFS='|'; \
+		dialog \
+			--backtitle "${U2UP_BACKTITLE}" \
+			--title "Installation packages repo" \
+			--clear \
+			--default-item "$current_item" \
+			--cancel-label "Cancel" \
+			--extra-label "Change" \
+			--cr-wrap \
+			--inputmenu "\nPlease set:" $HEIGHT 0 12 \
+			"Base URL:" ${install_repo_base_url_current} \
+		2>&1 >&3)
+		exit_status=$?
+		exec 3>&-
+
+		case $exit_status in
+		$DIALOG_CANCEL|$DIALOG_ESC)
+			clear
+			echo "Return from submenu." >&2
+			return 1
+			;;
+		esac
+
+		current_item="$(get_item_selection $selection)"
+		current_set="$(save_u2up_install_repo_selection ${U2UP_INSTALL_CONF_DIR} $selection)"
+		if [ -n "$current_set" ]; then
+			#Resize pressed: set new dialog values
+			eval $current_set
+		else
+			#Ok
+			save_u2up_install_repo_selection ${U2UP_INSTALL_CONF_DIR} "Base URL: ${install_repo_base_url_current}"
+			(( rv+=$? ))
+			return $rv
+		fi
+	done
+}
+
